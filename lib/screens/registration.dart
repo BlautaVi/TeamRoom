@@ -1,62 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:kurs/screens/Profile.dart';
 import 'dart:convert';
-import 'registration.dart';
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+
+import 'package:kurs/screens/Profile.dart';
+
+class RegistrationScreen extends StatefulWidget {
+  const RegistrationScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _loginController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
-  Future<void> _login() async {
+  Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
-      final String login = _loginController.text.trim();
+      final String username = _usernameController.text.trim();
+      final String email = _emailController.text.trim();
       final String password = _passwordController.text.trim();
 
+      final url = Uri.parse("https://team-room-back.onrender.com/api/auth/register");
       try {
         final response = await http.post(
-          Uri.parse("https://team-room-back.onrender.com/api/auth/login"),
+          url,
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({
-            "username": login,
+            "username": username,
+            "email": email,
             "password": password,
           }),
         );
-
-        if (response.statusCode == 200) {
+        if (response.statusCode == 201 || response.statusCode == 200) {
+          print("Успішна реєстрація: ${response.body}");
           final data = jsonDecode(response.body);
-          print("Відповідь від сервера: $data");
-          final authToken = data['jwt'];
-          if (authToken != null && authToken is String) {
-            print("Успішна авторизація: $data");
-            if (mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => ProfileScreen(authToken: authToken),
-                ),
-              );
-            }
-          } else {
-            print("Помилка: Сервер не повернув токен авторизації.");
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Помилка авторизації: не отримано токен.")),
-              );
-            }
+          final String authToken = data['jwt'];
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => ProfileScreen(authToken: authToken)),
+            );
           }
         } else {
-          print("Помилка: ${response.body}");
+          print("Помилка реєстрації: ${response.body}");
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Невірний логін або пароль")),
+              const SnackBar(
+                content: Text("Помилка реєстрації. Спробуйте інші дані."),
+                backgroundColor: Colors.red,
+              ),
             );
           }
         }
@@ -64,7 +59,10 @@ class _LoginScreenState extends State<LoginScreen> {
         print("Помилка підключення: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Помилка з'єднання")),
+            const SnackBar(
+              content: Text("Помилка з'єднання з сервером"),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -75,6 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     const Color textColor = Colors.white;
     final Color labelColor = Colors.white.withOpacity(0.8);
+    final Color rightSideBgColor = const Color(0xFF3D352E);
 
     return Scaffold(
       body: Row(
@@ -86,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Padding(
                   padding: EdgeInsets.all(12.0),
                   child: Text(
-                    'Let`s \ncomplete an \nauth',
+                    'Create \nyour \naccount',
                     style: TextStyle(
                       fontSize: 64,
                       fontFamily: 'InstrumentSans',
@@ -100,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           Expanded(
             child: Container(
+              color: rightSideBgColor,
               padding: const EdgeInsets.symmetric(horizontal: 30.0),
               child: Form(
                 key: _formKey,
@@ -108,23 +108,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
                     TextFormField(
-                      controller: _loginController,
+                      controller: _usernameController,
                       style: const TextStyle(color: textColor),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFF8D775F),
-                        labelText: 'Логін',
-                        labelStyle: TextStyle(color: labelColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          const BorderSide(color: Color(0xFFF1F0CC)),
-                        ),
-                      ),
+                      decoration: buildInputDecoration('Логін', labelColor),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return "Введіть логін";
@@ -132,30 +118,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _emailController,
+                      style: const TextStyle(color: textColor),
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: buildInputDecoration('Електронна пошта', labelColor),
+                      validator: (value) {
+                        if (value == null || value.isEmpty || !value.contains('@')) {
+                          return "Введіть коректну пошту";
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
                       style: const TextStyle(color: textColor),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFF8D775F),
-                        labelText: 'Пароль',
-                        labelStyle: TextStyle(color: labelColor),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          const BorderSide(color: Color(0xFFF1F0CC)),
-                        ),
+                      decoration: buildInputDecoration('Пароль', labelColor).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                             color: labelColor,
                           ),
                           onPressed: () {
@@ -163,48 +147,45 @@ class _LoginScreenState extends State<LoginScreen> {
                               _isPasswordVisible = !_isPasswordVisible;
                             });
                           },
+                        ),
                       ),
-    ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return "Введіть пароль";
                         }
                         if (value.length < 6) {
-                          return "Мінімум 6 символів";
+                          return "Пароль має містити мінімум 6 символів";
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 30),
                     ElevatedButton(
-                      onPressed: _login,
+                      onPressed: _register,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFA71D31),
                         foregroundColor: const Color(0xFFF1F0CC),
                         padding: const EdgeInsets.symmetric(vertical: 16),
+                        minimumSize: const Size(double.infinity, 50),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
                       child: const Text(
-                        'Увійти',
-                        style: TextStyle(fontSize: 16),
+                        'Зареєструватися',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 15),
                     TextButton(
                       onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const RegistrationScreen(),
-                          ),
-                        );
+                        Navigator.of(context).pop();
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: Color(0x008D775F).withOpacity(0.7),
+                        foregroundColor: Colors.white.withOpacity(0.7),
                       ),
                       child: const Text(
-                        'Немає акаунту? Зареєструватися',
+                        'Є акаунт? Авторизуйтесь',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -217,6 +198,22 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+  InputDecoration buildInputDecoration(String label, Color labelColor) {
+    return InputDecoration(
+      filled: true,
+      fillColor: const Color(0xFF8D775F),
+      labelText: label,
+      labelStyle: TextStyle(color: labelColor),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Color(0xFFF1F0CC)),
       ),
     );
   }
