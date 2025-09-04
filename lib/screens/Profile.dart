@@ -3,6 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as path;
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.authToken});
@@ -19,10 +22,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _biographyController = TextEditingController();
 
   File? _profileImage;
-  String? _currentPhotoUrl;
+  String? _currentPublicPhotoUrl;
+  String? _displayablePhotoUrl;
   bool _isLoading = true;
   bool _profileExists = false;
-
+  final String _backendBaseUrl = "https://team-room-back.onrender.com";
   @override
   void initState() {
     super.initState();
@@ -43,9 +47,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _firstNameController.text = data['firstName'] ?? '';
           _lastNameController.text = data['lastName'] ?? '';
           _biographyController.text = data['biography'] ?? '';
-          _currentPhotoUrl = data['photoUrl'];
+          _currentPublicPhotoUrl = data['photoUrl'];
           _profileExists = true;
         });
+        if (_currentPublicPhotoUrl != null && _currentPublicPhotoUrl!.isNotEmpty) {
+          _resolveAndSetDisplayableUrl(_currentPublicPhotoUrl!);
+        }
       } else if (response.statusCode == 404) {
         setState(() { _profileExists = false; });
         print("Профіль ще не створено.");
@@ -62,7 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _saveProfile() async {
+  Future<void> _saveProfile({String? newPhotoUrl}) async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _isLoading = true; });
 
@@ -70,24 +77,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final method = _profileExists ? 'PUT' : 'POST';
 
     try {
-      final body = jsonEncode({
+      final bodyMap = {
         'firstName': _firstNameController.text,
         'lastName': _lastNameController.text,
         'biography': _biographyController.text,
-        // 'photoUrl': 'URL_з_хмари_після_завантаження' // Це поле потрібно буде додати пізніше
-      });
+      };
 
+      if (newPhotoUrl != null) {
+        bodyMap['photoUrl'] = newPhotoUrl;
+      }
       final headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${widget.authToken}',
       };
 
       final response = method == 'PUT'
-          ? await http.put(url, headers: headers, body: body)
-          : await http.post(url, headers: headers, body: body);
+          ? await http.put(url, headers: headers, body: jsonEncode(bodyMap))
+          : await http.post(url, headers: headers, body: jsonEncode(bodyMap));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         _showSuccessSnackBar("Профіль успішно збережено!");
+        setState(() { _profileImage = null; });
         _fetchProfileData();
       } else {
         _handleErrorResponse(response.body, response.statusCode);
@@ -102,6 +112,114 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
   }
+  Future<void> _handleSave() async {
+    if (_profileImage != null) {
+      setState(() { _isLoading = true; });
+      try {
+        final uploadLinkResponse = await _getUploadLink();
+        final uploadUrl = uploadLinkResponse['link'];
+
+        final fileId = await _uploadFileToCloud(uploadUrl, _profileImage!);
+        if (fileId == null) throw Exception("Не вдалося отримати fileId після завантаження.");
+
+        final publicLink = await _getPublicLink(fileId);
+        if (publicLink == null) throw Exception("Не вдалося отримати публічне посилання.");
+
+        await _saveProfile(newPhotoUrl: publicLink);
+
+      } catch (e) {
+        _showErrorSnackBar("Помилка завантаження фото: ${e.toString()}");
+        if (mounted) setState(() { _isLoading = false; });
+      }
+    } else {
+      await _saveProfile();
+    }
+  }
+
+  Future<Map<String, dynamic>> _getUploadLink() async {
+    final uri = Uri.parse("$_backendBaseUrl/api/cloud-storage/get-upload-link?purpose=profile-photo");
+    final response = await http.get(uri, headers: {
+      'Authorization': 'Bearer ${widget.authToken}',
+    });
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Не вдалося отримати посилання для завантаження. Статус: ${response.statusCode}');
+    }
+  }
+
+  Future<String?> _uploadFileToCloud(String uploadUrl, File imageFile) async {
+    final request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+    final String fileName = '${DateTime.now().millisecondsSinceEpoch}_${path.basename(imageFile.path)}';
+    final mimeType = lookupMimeType(imageFile.path);
+
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        imageFile.path,
+        filename: fileName,
+        contentType: mimeType != null ? MediaType.parse(mimeType) : null,
+      ),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['metadata']['fileid'].toString();
+    } else {
+      throw Exception('Помилка завантаження файлу на хмару. Статус: ${response.statusCode}');
+    }
+  }
+
+  Future<String?> _getPublicLink(String fileId) async {
+    final uri = Uri.parse("$_backendBaseUrl/api/cloud-storage/get-public-link?fileid=$fileId");
+    final response = await http.get(uri, headers: {
+      'Authorization': 'Bearer ${widget.authToken}',
+    });
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['link'];
+    } else {
+      throw Exception('Не вдалося отримати публічне посилання. Статус: ${response.statusCode}');
+    }
+  }
+
+  Future<void> _resolveAndSetDisplayableUrl(String publicUrl) async {
+    try {
+      final finalUrl = await _getDisplayableUrl(publicUrl);
+      if (mounted) {
+        setState(() {
+          _displayablePhotoUrl = finalUrl;
+        });
+      }
+    } catch (e) {
+      _showErrorSnackBar("Не вдалося завантажити фото профілю.");
+      print("Помилка отримання фото для відображення: $e");
+    }
+  }
+
+  Future<String> _getDisplayableUrl(String publicUrl) async {
+    final uri = Uri.parse(publicUrl);
+    final code = uri.queryParameters['code'];
+    if (code == null) throw Exception("Не знайдено 'code' в URL");
+
+    final pCloudUrl = Uri.parse("https://eapi.pcloud.com/getpublinkdownload?code=$code");
+    final response = await http.get(pCloudUrl);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final hosts = data['hosts'] as List;
+      final filePath = data['path'] as String;
+      if (hosts.isNotEmpty && filePath.isNotEmpty) {
+        return "https://${hosts.first}$filePath";
+      }
+    }
+    throw Exception("Помилка отримання прямого посилання з pCloud API. Статус: ${response.statusCode}");
+  }
 
   Future<void> _pickImage() async {
     final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 80);
@@ -111,15 +229,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     }
   }
+
   void _handleErrorResponse(String body, int statusCode) {
     print("Помилка від сервера (Статус $statusCode): $body");
     String errorMessage = "Помилка $statusCode";
     try {
       final errorData = jsonDecode(body);
       final message = errorData['message'] ?? errorData['error'] ?? errorData['details'];
-      if (message != null) {
-        errorMessage = message;
-      }
+      if (message != null) errorMessage = message;
     } catch (e) {
       errorMessage = "Сервер повернув неочікувану відповідь.";
     }
@@ -171,10 +288,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: const Color(0xFF8D775F),
                     backgroundImage: _profileImage != null
                         ? FileImage(_profileImage!)
-                        : (_currentPhotoUrl != null && _currentPhotoUrl!.isNotEmpty
-                        ? NetworkImage(_currentPhotoUrl!)
+                        : (_displayablePhotoUrl != null
+                        ? NetworkImage(_displayablePhotoUrl!)
                         : null) as ImageProvider?,
-                    child: _profileImage == null && (_currentPhotoUrl == null || _currentPhotoUrl!.isEmpty)
+                    child: _profileImage == null && _displayablePhotoUrl == null
                         ? const Icon(Icons.person, size: 80, color: Color(0xFF3D352E))
                         : null,
                   ),
@@ -219,7 +336,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 40),
               ElevatedButton(
-                onPressed: _saveProfile,
+                onPressed: _isLoading ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFA71D31),
                   foregroundColor: const Color(0xFFF1F0CC),
