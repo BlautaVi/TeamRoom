@@ -71,25 +71,27 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color textColor = Colors.white;
-    final Color labelColor = Colors.white.withOpacity(0.8);
-    final Color rightSideBgColor = const Color(0xFF3D352E);
+    const Color rightPanelColor = Color(0xFF62567E);
+    const Color buttonBackgroundColor = Color(0xFFB6A5DE);
+    const Color hintTextColor = Color(0xFF62567E);
+    const Color linkTextColor = Color(0xFFFFFFFFA);
 
     return Scaffold(
       body: Row(
         children: [
           Expanded(
             child: Container(
-              color: const Color(0xFFF1F0CC),
+              color: Colors.white,
               child: const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(12.0),
+                  padding: EdgeInsets.all(24.0),
                   child: Text(
                     'Create \nyour \naccount',
                     style: TextStyle(
+                      color: Color(0xFF62567E),
                       fontSize: 64,
                       fontFamily: 'InstrumentSans',
-                      fontWeight: FontWeight.w200,
+                      fontWeight: FontWeight.w400,
                     ),
                     textAlign: TextAlign.left,
                   ),
@@ -99,21 +101,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           Expanded(
             child: Container(
-              color: rightSideBgColor,
-              padding: const EdgeInsets.symmetric(horizontal: 30.0),
+              color: rightPanelColor,
+              padding: const EdgeInsets.symmetric(horizontal: 50.0),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     TextFormField(
                       controller: _usernameController,
-                      style: const TextStyle(color: textColor),
-                      decoration: buildInputDecoration('Логін', labelColor),
+                      style: const TextStyle(color: Colors.black),
+                      decoration: buildInputDecoration('Ім\'я', hintTextColor),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return "Введіть логін";
+                          return "Введіть ім'я";
                         }
                         return null;
                       },
@@ -121,9 +123,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _emailController,
-                      style: const TextStyle(color: textColor),
+                      style: const TextStyle(color: Colors.black),
                       keyboardType: TextInputType.emailAddress,
-                      decoration: buildInputDecoration('Електронна пошта', labelColor),
+                      decoration: buildInputDecoration('Електронна пошта', hintTextColor),
                       validator: (value) {
                         if (value == null || value.isEmpty || !value.contains('@')) {
                           return "Введіть коректну пошту";
@@ -135,12 +137,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
-                      style: const TextStyle(color: textColor),
-                      decoration: buildInputDecoration('Пароль', labelColor).copyWith(
+                      style: const TextStyle(color: Colors.black ),
+                      decoration: buildInputDecoration('Пароль', hintTextColor).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: labelColor,
+                            color: hintTextColor,
                           ),
                           onPressed: () {
                             setState(() {
@@ -159,36 +161,34 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 40),
                     ElevatedButton(
                       onPressed: _register,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFA71D31),
-                        foregroundColor: const Color(0xFFF1F0CC),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        minimumSize: const Size(double.infinity, 50),
+                        backgroundColor: buttonBackgroundColor,
+                        foregroundColor: hintTextColor,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        elevation: 0,
                       ),
                       child: const Text(
                         'Зареєструватися',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 20),
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).pop();
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.white.withOpacity(0.7),
-                      ),
                       child: const Text(
                         'Є акаунт? Авторизуйтесь',
                         style: TextStyle(
+                          color: linkTextColor,
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                     ),
@@ -201,19 +201,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       ),
     );
   }
-  InputDecoration buildInputDecoration(String label, Color labelColor) {
+
+  InputDecoration buildInputDecoration(String hint, Color hintColor) {
     return InputDecoration(
       filled: true,
-      fillColor: const Color(0xFF8D775F),
-      labelText: label,
-      labelStyle: TextStyle(color: labelColor),
+      fillColor: Colors.white,
+      hintText: hint,
+      hintStyle: TextStyle(color: hintColor),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFF1F0CC)),
+        borderSide: BorderSide.none,
       ),
     );
   }

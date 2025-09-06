@@ -73,24 +73,27 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color textColor = Colors.white;
-    final Color labelColor = Colors.white.withOpacity(0.8);
+    const Color rightPanelColor = Color(0xFF62567E);
+    const Color buttonBackgroundColor = Color(0xFFB6A5DE);
+    const Color hintTextColor = Color(0xFF62567E);
+    const Color leftPanelTextColor = Color(0xFF62567E);
 
     return Scaffold(
       body: Row(
         children: [
           Expanded(
             child: Container(
-              color: const Color(0xFFF1F0CC),
+              color: Colors.white,
               child: const Center(
                 child: Padding(
-                  padding: EdgeInsets.all(12.0),
+                  padding: EdgeInsets.all(24.0),
                   child: Text(
-                    'Let`s \ncomplete an \nauth',
+                    'Let`s\ncomplete an\nauth',
                     style: TextStyle(
                       fontSize: 64,
                       fontFamily: 'InstrumentSans',
-                      fontWeight: FontWeight.w200,
+                      fontWeight: FontWeight.w400,
+                      color: leftPanelTextColor,
                     ),
                     textAlign: TextAlign.left,
                   ),
@@ -100,98 +103,82 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0),
+              color: rightPanelColor,
+              padding: const EdgeInsets.symmetric(horizontal: 50.0),
               child: Form(
                 key: _formKey,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
                     TextFormField(
                       controller: _loginController,
-                      style: const TextStyle(color: textColor),
+                      style: const TextStyle(color: Color(0xFF62567E)),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF8D775F),
-                        labelText: 'Логін',
-                        labelStyle: TextStyle(color: labelColor),
+                        fillColor: Colors.white,
+                        hintText: 'Ім\'я',
+                        hintStyle: const TextStyle(color: hintTextColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          const BorderSide(color: Color(0xFFF1F0CC)),
+                          borderSide: BorderSide.none,
                         ),
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return "Введіть логін";
+                          return "Введіть ім'я";
                         }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: !_isPasswordVisible,
-                      style: const TextStyle(color: textColor),
+                      obscureText: true,
+                      style: const TextStyle(color: Color(0xFF62567E)),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: const Color(0xFF8D775F),
-                        labelText: 'Пароль',
-                        labelStyle: TextStyle(color: labelColor),
+                        fillColor: Colors.white,
+                        hintText: 'Пароль',
+                        hintStyle: const TextStyle(color: hintTextColor),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide:
-                          const BorderSide(color: Color(0xFFF1F0CC)),
+                          borderSide: BorderSide.none,
                         ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
-                            color: labelColor,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isPasswordVisible = !_isPasswordVisible;
-                            });
-                          },
                       ),
-    ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return "Введіть пароль";
                         }
-                        if (value.length < 6) {
-                          return "Мінімум 6 символів";
-                        }
                         return null;
                       },
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 40),
                     ElevatedButton(
                       onPressed: _login,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFA71D31),
-                        foregroundColor: const Color(0xFFF1F0CC),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: buttonBackgroundColor,
+                        foregroundColor: Color(0xFFFFFFFF),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        elevation: 0,
                       ),
                       child: const Text(
-                        'Увійти',
-                        style: TextStyle(fontSize: 16),
+                        'Авторизуватись',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).push(
@@ -200,14 +187,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: Color(0x008D775F).withOpacity(0.7),
-                      ),
                       child: const Text(
-                        'Немає акаунту? Зареєструватися',
+                        'Немає акаунту? Зареєструйтесь',
                         style: TextStyle(
+                          color: Color(0xFFFFFFFF),
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                     ),

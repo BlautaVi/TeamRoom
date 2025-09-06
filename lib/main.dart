@@ -13,14 +13,14 @@ class MyApp extends StatelessWidget {
       title: 'Flutter Demo',
       theme: ThemeData(
         fontFamily: 'InstrumentSans',
-        scaffoldBackgroundColor: const Color(0xFFF1F0CC),
+        scaffoldBackgroundColor: const Color(0xffffffff),
         textTheme: Theme.of(context).textTheme.apply(
-          bodyColor: const Color(0xFF7E6B56),
-          displayColor: const Color(0xFFF1F0CC),
+          bodyColor: const Color(0xFF7C6BA3),
+          displayColor: const Color(0xFFFFFFFF),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF8D775F),
+            backgroundColor: const Color(0xFFB6A5DE),
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
