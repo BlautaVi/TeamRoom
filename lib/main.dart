@@ -1,6 +1,11 @@
+import 'dart:io' show HttpOverrides;
+
 import 'package:flutter/material.dart';
 import 'package:kurs/screens/auth.dart';
+import 'http_overrides.dart';
+
 void main() {
+  HttpOverrides.global = MyHttpOverrides();
   runApp(const MyApp());
 }
 
@@ -10,6 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
       theme: ThemeData(
         fontFamily: 'InstrumentSans',
