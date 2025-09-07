@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:kurs/screens/HomeScreen.dart';
 import 'auth.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -305,7 +306,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HomeScreen(authToken: widget.authToken),
+              ),
+            );
+          },
         ),
         actions: [
           IconButton(

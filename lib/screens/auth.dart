@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:kurs/screens/Profile.dart';
 import 'dart:convert';
+import 'package:kurs/screens/HomeScreen.dart';
 import 'registration.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
             if (mounted) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (context) => ProfileScreen(authToken: authToken),
+                  builder: (context) => HomeScreen(authToken: authToken),
                 ),
               );
             }
@@ -138,8 +139,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
-                      style: const TextStyle(color: Color(0xFF62567E)),
+                      obscureText: !_isPasswordVisible,
+                      style: const TextStyle(color: hintTextColor),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
@@ -152,6 +153,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                            color: hintTextColor.withOpacity(0.7),
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
                         ),
                       ),
                       validator: (value) {
