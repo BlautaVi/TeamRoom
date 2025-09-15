@@ -17,7 +17,7 @@ class Message {
     return Message(
       text: json['content'] ?? '',
       senderUsername: json['sender'] ?? 'unknown',
-      roomId: json['roomId'] ?? '',
+      roomId: (json['roomId'] ?? '').toString(),
     );
   }
 }
@@ -28,9 +28,10 @@ class Room {
   String lastMessage;
 
   Room({required this.id, required this.name, this.lastMessage = ''});
+
   factory Room.fromJson(Map<String, dynamic> json) {
     return Room(
-      id: json['roomId'] ?? json['id'] ?? '',
+      id: (json['roomId'] ?? json['id'] ?? '').toString(),
       name: json['roomName'] ?? 'Unnamed Room',
       lastMessage: json['lastMessage']?['content'] ?? 'Немає повідомлень',
     );
@@ -72,7 +73,7 @@ class _ChatsMainState extends State<ChatsMain> {
 
   List<Message> _messages = [];
   final TextEditingController _messageController = TextEditingController();
-  StreamSubscription<StompFrame>? _topicSubscription;
+  void Function()? _topicUnsubscribe;
 
   String _currentUserId = '';
   String _currentUsername = '';
@@ -150,8 +151,7 @@ class _ChatsMainState extends State<ChatsMain> {
       destination: '/user/queue/notifications',
       callback: _onUserBroadcastReceived,
     );
-
-    _stompClient!.send(destination: '/app/get-initial-data');
+    _stompClient!.send(destination: '/app/get-initial-data', body: '{}');
   }
 
   void _onUserBroadcastReceived(StompFrame frame) {
@@ -161,39 +161,45 @@ class _ChatsMainState extends State<ChatsMain> {
     final payload = broadcast['payload'];
 
     print("Received broadcast of type '$type'");
-
     switch (type) {
       case 'INITIAL_DATA':
         final List<dynamic> roomData = payload ?? [];
-        setState(() {
-          _rooms = roomData.map((data) => Room.fromJson(data)).toList();
-          _isLoading = false;
-          _error = '';
-        });
+        if (mounted) {
+          setState(() {
+            _rooms = roomData.map((data) => Room.fromJson(data)).toList();
+            _isLoading = false;
+            _error = '';
+          });
+        }
         break;
       case 'ROOM_MESSAGES_RESPONSE':
         final List<dynamic> messageData = payload ?? [];
-        setState(() {
-          _messages = messageData.map((data) => Message.fromJson(data)).toList().reversed.toList();
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _messages = messageData.map((data) => Message.fromJson(data)).toList().reversed.toList();
+            _isLoading = false;
+          });
+        }
         break;
       case 'ROOM_CREATED':
         final newRoom = Room.fromJson(payload);
-        if(!_rooms.any((room) => room.id == newRoom.id)) {
+        if (mounted && !_rooms.any((room) => room.id == newRoom.id)) {
           setState(() => _rooms.insert(0, newRoom));
         }
         break;
       case 'CHAT_MESSAGE':
         final message = Message.fromJson(payload);
         final roomIndex = _rooms.indexWhere((room) => room.id == message.roomId);
-        if (roomIndex != -1) {
+        if (mounted && roomIndex != -1) {
           setState(() {
             _rooms[roomIndex].lastMessage = message.text;
             final updatedRoom = _rooms.removeAt(roomIndex);
             _rooms.insert(0, updatedRoom);
           });
         }
+        break;
+      case 'USER_JOINED':
+        print("User joined payload: $payload");
         break;
       default:
         print("Unhandled broadcast type: $type");
@@ -205,9 +211,11 @@ class _ChatsMainState extends State<ChatsMain> {
     final broadcast = jsonDecode(frame.body!);
 
     if (broadcast['type'] == 'CHAT_MESSAGE') {
-      setState(() {
-        _messages.insert(0, Message.fromJson(broadcast['payload']));
-      });
+      if (mounted) {
+        setState(() {
+          _messages.insert(0, Message.fromJson(broadcast['payload']));
+        });
+      }
     }
   }
 
@@ -218,13 +226,12 @@ class _ChatsMainState extends State<ChatsMain> {
       _messages.clear();
     });
 
-    _topicSubscription?.cancel();
+    _topicUnsubscribe?.call();
 
-    _topicSubscription = _stompClient?.subscribe(
+    _topicUnsubscribe = _stompClient?.subscribe(
       destination: '/topic/rooms/${room.id}',
       callback: _onTopicBroadcastReceived,
-    ) as StreamSubscription<StompFrame>?;
-
+    );
     _stompClient?.send(
       destination: '/app/get-room-messages',
       body: jsonEncode({'roomId': room.id}),
@@ -246,86 +253,99 @@ class _ChatsMainState extends State<ChatsMain> {
     }
   }
 
-  Future<void> _showSearchUserDialog() async {
-    final searchController = TextEditingController();
-    List<SearchedUser> searchResults = [];
+  void _addUserToRoom(String username) {
+    if (username.isNotEmpty && _stompClient != null && _selectedRoom != null) {
+      print("Attempting to add user '$username' to room '${_selectedRoom!.id}'");
+      _stompClient!.send(
+        destination: '/app/room.join',
+        body: jsonEncode({
+          'roomId': _selectedRoom!.id,
+          'username': username,
+        }),
+      );
+    }
+  }
+
+  Future<void> _showAddUserDialog() async {
+    final userController = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Додати учасника в чат'),
+          content: TextField(
+            controller: userController,
+            decoration: const InputDecoration(
+              labelText: 'Username користувача',
+              hintText: 'Введіть точний username',
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Скасувати'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (userController.text.isNotEmpty) {
+                  _addUserToRoom(userController.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Додати'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  Future<void> _showCreateRoomDialog() async {
+    final roomNameController = TextEditingController();
 
     await showDialog(
       context: context,
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Future<void> searchUsers() async {
-              if (searchController.text.isEmpty) return;
-              try {
-                final response = await http.get(
-                  Uri.parse("https://$_hostname$_searchUsersEndpoint?username=${searchController.text}"),
-                  headers: {'Authorization': 'Bearer ${widget.authToken}'},
-                );
-                if (response.statusCode == 200) {
-                  final List<dynamic> data = jsonDecode(response.body);
-                  setDialogState(() {
-                    searchResults = data.map((d) => SearchedUser.fromJson(d)).toList();
-                  });
-                }
-              } catch (e) {
-                print("Помилка пошуку: $e");
+        return AlertDialog(
+          title: const Text('Створити новий чат'),
+          content: TextField(
+            controller: roomNameController,
+            decoration: const InputDecoration(
+              labelText: 'Назва чату',
+            ),
+            onSubmitted: (_) {
+              if (roomNameController.text.isNotEmpty) {
+                _createRoom(roomNameController.text);
+                Navigator.of(context).pop();
               }
-            }
-
-            void createRoom(SearchedUser user) {
-              _stompClient?.send(
-                  destination: '/app/room.create',
-                  body: jsonEncode({
-                    'roomName': user.username,
-                    'participantIds': [user.id]
-                  })
-              );
-              Navigator.of(context).pop();
-            }
-
-            return AlertDialog(
-              title: const Text('Створити новий чат'),
-              content: SizedBox(
-                width: 400,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: searchController,
-                      decoration: InputDecoration(
-                        labelText: 'Пошук за username',
-                        suffixIcon: IconButton(icon: const Icon(Icons.search), onPressed: searchUsers),
-                      ),
-                      onSubmitted: (_) => searchUsers(),
-                    ),
-                    const SizedBox(height: 16),
-                    if (searchResults.isNotEmpty)
-                      SizedBox(
-                        height: 200,
-                        child: ListView(
-                          shrinkWrap: true,
-                          children: searchResults
-                              .map((user) => ListTile(
-                            title: Text(user.username),
-                            onTap: () => createRoom(user),
-                          ))
-                              .toList(),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Скасувати'),
-                )
-              ],
-            );
-          },
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Скасувати'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (roomNameController.text.isNotEmpty) {
+                  _createRoom(roomNameController.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Створити'),
+            ),
+          ],
         );
       },
+    );
+  }
+  void _createRoom(String roomName) {
+    _stompClient?.send(
+      destination: '/app/room.create',
+      body: jsonEncode({
+        'roomName': roomName,
+        'photoUrl': "",
+      }),
     );
   }
 
@@ -370,8 +390,7 @@ class _ChatsMainState extends State<ChatsMain> {
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  // Re-request initial data on pull-to-refresh
-                  _stompClient?.send(destination: '/app/get-initial-data');
+                  _stompClient?.send(destination: '/app/get-initial-data', body: '{}');
                 },
                 child: _rooms.isEmpty
                     ? const Center(child: Text("У вас ще немає чатів.", style: TextStyle(color: Colors.white70)))
@@ -380,7 +399,7 @@ class _ChatsMainState extends State<ChatsMain> {
                   itemBuilder: (context, index) {
                     final room = _rooms[index];
                     return ListTile(
-                      leading: const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.person, color: primaryColor)),
+                      leading: const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.group, color: primaryColor)),
                       title: Text(room.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       subtitle: Text(room.lastMessage, style: TextStyle(color: Colors.white.withOpacity(0.7)), overflow: TextOverflow.ellipsis),
                       onTap: () => _openRoom(room),
@@ -395,7 +414,7 @@ class _ChatsMainState extends State<ChatsMain> {
             child: Align(
               alignment: Alignment.bottomRight,
               child: FloatingActionButton(
-                onPressed: _error.isEmpty ? _showSearchUserDialog : null,
+                onPressed: _error.isEmpty ? _showCreateRoomDialog : null,
                 backgroundColor: _error.isEmpty ? Colors.white : Colors.grey,
                 child: Icon(Icons.add, color: _error.isEmpty ? primaryColor : Colors.white70),
               ),
@@ -417,24 +436,29 @@ class _ChatsMainState extends State<ChatsMain> {
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: primaryColor),
               onPressed: () {
-                // Unsubscribe from topic when leaving room
-                _topicSubscription?.cancel();
-                _topicSubscription = null;
+                _topicUnsubscribe?.call();
+                _topicUnsubscribe = null;
                 setState(() => _selectedRoom = null);
               },
             ),
             title: Text(_selectedRoom!.name, style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold)),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.person_add_alt_1_outlined, color: primaryColor),
+                onPressed: _showAddUserDialog,
+                tooltip: 'Додати учасника',
+              ),
+            ],
           ),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
-              reverse: true, // Keep new messages at the bottom
+              reverse: true,
               padding: const EdgeInsets.all(8.0),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final message = _messages[index];
-                // The `isMe` check now compares usernames.
+                final message = _messages.reversed.toList()[index];
                 final isMe = message.senderUsername == _currentUsername;
                 return Align(
                   alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
@@ -478,9 +502,10 @@ class _ChatsMainState extends State<ChatsMain> {
 
   @override
   void dispose() {
-    _topicSubscription?.cancel();
+    _topicUnsubscribe?.call();
     _stompClient?.deactivate();
     _messageController.dispose();
     super.dispose();
   }
 }
+
