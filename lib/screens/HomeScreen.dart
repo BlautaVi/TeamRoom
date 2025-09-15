@@ -23,7 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      ChatsMain(authToken: widget.authToken, onChatSelected: _handleChatSelected),
+      ChatsMain(authToken: widget.authToken, onChatSelected: _handleChatSelected, onChatViewChange: (bool isChatOpen) {  },),
       _buildQuotePage(),
       const Center(
           child: Text('Сторінка Відео',

@@ -50,11 +50,13 @@ class SearchedUser {
 class ChatsMain extends StatefulWidget {
   final String authToken;
   final Function(int? index) onChatSelected;
+  final Function(bool isChatOpen) onChatViewChange;
 
   const ChatsMain({
     super.key,
     required this.authToken,
     required this.onChatSelected,
+    required this.onChatViewChange,
   });
 
   @override
@@ -159,8 +161,8 @@ class _ChatsMainState extends State<ChatsMain> {
     final broadcast = jsonDecode(frame.body!);
     final type = broadcast['type'];
     final payload = broadcast['payload'];
-
     print("Received broadcast of type '$type'");
+    print("Payload: $payload");
     switch (type) {
       case 'INITIAL_DATA':
         final List<dynamic> roomData = payload ?? [];
@@ -182,30 +184,48 @@ class _ChatsMainState extends State<ChatsMain> {
         }
         break;
       case 'ROOM_CREATED':
-        final newRoom = Room.fromJson(payload);
-        if (mounted && !_rooms.any((room) => room.id == newRoom.id)) {
-          setState(() => _rooms.insert(0, newRoom));
+        if (payload != null && payload is Map<String, dynamic>) {
+          final newRoom = Room.fromJson(payload);
+          if (mounted) {
+            setState(() {
+              if (!_rooms.any((room) => room.id == newRoom.id)) {
+                _rooms.insert(0, newRoom);
+              }
+              _isLoading = false;
+              _error = '';
+            });
+          }
+        } else if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _error = '';
+          });
         }
         break;
       case 'CHAT_MESSAGE':
         final message = Message.fromJson(payload);
-        final roomIndex = _rooms.indexWhere((room) => room.id == message.roomId);
-        if (mounted && roomIndex != -1) {
-          setState(() {
-            _rooms[roomIndex].lastMessage = message.text;
-            final updatedRoom = _rooms.removeAt(roomIndex);
-            _rooms.insert(0, updatedRoom);
-          });
+        if (mounted) {
+          if (_selectedRoom != null && message.roomId == _selectedRoom!.id) {
+            setState(() {
+              _messages.insert(0, message);
+              _isLoading = false;
+            });
+          }
+
+          final roomIndex = _rooms.indexWhere((room) => room.id == message.roomId);
+          if (roomIndex != -1) {
+            setState(() {
+              _rooms[roomIndex].lastMessage = message.text;
+              final updatedRoom = _rooms.removeAt(roomIndex);
+              _rooms.insert(0, updatedRoom);
+            });
+          }
         }
-        break;
-      case 'USER_JOINED':
-        print("User joined payload: $payload");
         break;
       default:
         print("Unhandled broadcast type: $type");
     }
   }
-
   void _onTopicBroadcastReceived(StompFrame frame) {
     if (frame.body == null) return;
     final broadcast = jsonDecode(frame.body!);
@@ -220,6 +240,7 @@ class _ChatsMainState extends State<ChatsMain> {
   }
 
   Future<void> _openRoom(Room room) async {
+    widget.onChatViewChange(true);
     setState(() {
       _isLoading = true;
       _selectedRoom = room;
@@ -436,6 +457,7 @@ class _ChatsMainState extends State<ChatsMain> {
             leading: IconButton(
               icon: const Icon(Icons.arrow_back, color: primaryColor),
               onPressed: () {
+                widget.onChatViewChange(false);
                 _topicUnsubscribe?.call();
                 _topicUnsubscribe = null;
                 setState(() => _selectedRoom = null);
@@ -458,7 +480,7 @@ class _ChatsMainState extends State<ChatsMain> {
               padding: const EdgeInsets.all(8.0),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                final message = _messages.reversed.toList()[index];
+                final message = _messages[index];
                 final isMe = message.senderUsername == _currentUsername;
                 return Align(
                   alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
