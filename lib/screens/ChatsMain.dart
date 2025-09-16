@@ -16,7 +16,7 @@ class Message {
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
       text: json['content'] ?? '',
-      senderUsername: json['sender'] ?? 'unknown',
+      senderUsername: json['senderUsername'] ?? json['sender'] ?? 'unknown',
       roomId: (json['roomId'] ?? '').toString(),
     );
   }
@@ -66,7 +66,7 @@ class ChatsMain extends StatefulWidget {
 class _ChatsMainState extends State<ChatsMain> {
   final String _hostname = "team-room-back.onrender.com";
   final String _searchUsersEndpoint = "/users/search";
-
+  bool _showProfileIcon = true;
   StompClient? _stompClient;
   List<Room> _rooms = [];
   bool _isLoading = true;
@@ -473,28 +473,24 @@ class _ChatsMainState extends State<ChatsMain> {
             ],
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-              reverse: true,
-              padding: const EdgeInsets.all(8.0),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                final isMe = message.senderUsername == _currentUsername;
-                return Align(
-                  alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isMe ? primaryColor : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(message.text, style: TextStyle(color: isMe ? Colors.white : Colors.black)),
-                  ),
-                );
-              },
+            child: Container(
+              color: Colors.grey.shade50,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                reverse: true,
+                padding: const EdgeInsets.all(8.0),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final message = _messages[index];
+                  final isMe = message.senderUsername == _currentUsername;
+                  return _MessageBubble(
+                    message: message,
+                    isMe: isMe,
+                    primaryColor: primaryColor,
+                  );
+                },
+              ),
             ),
           ),
           Container(
@@ -521,7 +517,6 @@ class _ChatsMainState extends State<ChatsMain> {
       ),
     );
   }
-
   @override
   void dispose() {
     _topicUnsubscribe?.call();
@@ -530,4 +525,68 @@ class _ChatsMainState extends State<ChatsMain> {
     super.dispose();
   }
 }
+class _MessageBubble extends StatelessWidget {
+  const _MessageBubble({
+    required this.message,
+    required this.isMe,
+    required this.primaryColor,
+  });
 
+  final Message message;
+  final bool isMe;
+  final Color primaryColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        Container(
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.7,
+          ),
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+          decoration: BoxDecoration(
+            color: isMe ? primaryColor : Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMe ? 16 : 4),
+              bottomRight: Radius.circular(isMe ? 4 : 16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 3,
+                offset: const Offset(1, 1),
+              )
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isMe)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text(
+                    message.senderUsername,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              Text(
+                message.text,
+                style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 15),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
