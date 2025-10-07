@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:kurs/screens/Profile.dart';
 import 'dart:convert';
 import 'package:kurs/screens/HomeScreen.dart';
 import 'registration.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -34,10 +34,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          print("Відповідь від сервера: $data");
           final authToken = data['jwt'];
           if (authToken != null && authToken is String) {
-            print("Успішна авторизація: $data");
+            print("Успішна авторизація для користувача: $login");
             if (mounted) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
@@ -46,7 +45,6 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
           } else {
-            print("Помилка: Сервер не повернув токен авторизації.");
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Помилка авторизації: не отримано токен.")),
@@ -54,7 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
             }
           }
         } else {
-          print("Помилка: ${response.body}");
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Невірний логін або пароль")),
@@ -62,7 +59,6 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       } catch (e) {
-        print("Помилка підключення: $e");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Помилка з'єднання")),
@@ -114,17 +110,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: <Widget>[
                     TextFormField(
                       controller: _loginController,
-                      style: const TextStyle(color: Color(0xFF62567E)),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
                         hintText: 'Ім\'я',
                         hintStyle: const TextStyle(color: hintTextColor),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
@@ -140,17 +131,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
-                      style: const TextStyle(color: hintTextColor),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: Colors.white,
                         hintText: 'Пароль',
                         hintStyle: const TextStyle(color: hintTextColor),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
                         ),
@@ -178,12 +164,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _login,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: buttonBackgroundColor,
-                        foregroundColor: Color(0xFFFFFFFF),
+                        foregroundColor: const Color(0xFFFFFFFF),
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        elevation: 0,
                       ),
                       child: const Text(
                         'Авторизуватись',

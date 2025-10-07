@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:kurs/screens/Profile.dart';
 import 'package:kurs/screens/ChatsMain.dart';
 
+import 'CoursesScreen.dart';
+
 class HomeScreen extends StatefulWidget {
   final String authToken;
   const HomeScreen({super.key, required this.authToken});
@@ -12,8 +14,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _mainPageIndex = 0;
+
   int? _selectedChatIndex;
   late final List<Widget> _screens;
+  bool _showProfileIcon = true;
+
   void _handleChatSelected(int? index) {
     setState(() {
       _selectedChatIndex = index;
@@ -23,8 +28,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      ChatsMain(authToken: widget.authToken, onChatSelected: _handleChatSelected, onChatViewChange: (bool isChatOpen) {  },),
-      _buildQuotePage(),
+      ChatsMain(
+        authToken: widget.authToken,
+        onChatSelected: (index) {},
+        onChatViewChange: (isChatOpen) {
+          setState(() {
+            _showProfileIcon = !isChatOpen;
+          });
+        },
+      ),
+      CoursesScreen(authToken: widget.authToken),
       const Center(
           child: Text('Сторінка Відео',
               style: TextStyle(fontSize: 24, color: Color(0xFF62567E)))),
@@ -51,30 +64,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildQuotePage() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: RichText(
-            textAlign: TextAlign.center,
-            text: const TextSpan(
-              style: TextStyle(
-                color: Color(0xFF62567E),
-                fontFamily: 'InstrumentSans',
-                height: 3,
-              ),
-              children: <TextSpan>[
-                TextSpan(text: '"Людина не може нічого іншого навчитися,\nокрім як переходячи від відомого до невідомого."\n\n'),
-                TextSpan(text: 'Клод Бернар', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,24 +111,25 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Stack(
               children: [
                 _screens[_mainPageIndex],
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ProfileScreen(authToken: widget.authToken),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.account_circle, color: primaryColor, size: 60),
-                      tooltip: 'Профіль',
+                if (_showProfileIcon)
+                  Align(
+                    alignment: Alignment.topRight,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProfileScreen(authToken: widget.authToken),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.account_circle, color: primaryColor, size: 60),
+                        tooltip: 'Профіль',
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

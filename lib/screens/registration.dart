@@ -111,7 +111,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   children: <Widget>[
                     TextFormField(
                       controller: _usernameController,
-                      style: const TextStyle(color: Colors.black),
+                      style: const TextStyle(color: Color(0xFF62567E)),
                       decoration: buildInputDecoration('Ім\'я', hintTextColor),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -123,7 +123,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _emailController,
-                      style: const TextStyle(color: Colors.black),
+                      style: const TextStyle(color: Color(0xFF62567E)),
                       keyboardType: TextInputType.emailAddress,
                       decoration: buildInputDecoration('Електронна пошта', hintTextColor),
                       validator: (value) {
@@ -137,7 +137,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
-                      style: const TextStyle(color: Colors.black ),
+                      style: const TextStyle(color: Color(0xFF62567E) ),
                       decoration: buildInputDecoration('Пароль', hintTextColor).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
