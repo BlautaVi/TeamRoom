@@ -2,6 +2,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'pcloud_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 enum CourseRole { OWNER, PROFESSOR, LEADER, STUDENT, VIEWER }
 
@@ -99,10 +102,10 @@ class CourseMaterial {
 }
 
 class CourseService {
-  final String _baseUrl = "https://team-room-back.onrender.com/api/course";
+  final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
 
   Future<List<Course>> getCourses(String token) async {
-    final response = await http.get(Uri.parse(_baseUrl), headers: {'Authorization': 'Bearer $token'});
+    final response = await http.get(Uri.parse('$_apiBaseUrl/course'), headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode == 200) {
       return (jsonDecode(response.body)['courses'] as List).map((c) => Course.fromJson(c)).toList();
     } else {
@@ -112,7 +115,7 @@ class CourseService {
 
   Future<void> createCourse(String token, String name, {String? photoUrl}) async {
     final response = await http.post(
-      Uri.parse(_baseUrl),
+      Uri.parse('$_apiBaseUrl/course'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       body: jsonEncode({'name': name, 'photoUrl': photoUrl}),
     );
@@ -123,7 +126,7 @@ class CourseService {
 
   Future<void> joinCourse(String token, int courseId) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/$courseId/members'),
+      Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode != 200) {
@@ -132,7 +135,7 @@ class CourseService {
   }
 
   Future<List<CourseMember>> getCourseMembers(String token, int courseId) async {
-    final response = await http.get(Uri.parse('$_baseUrl/$courseId'), headers: {'Authorization': 'Bearer $token'});
+    final response = await http.get(Uri.parse('$_apiBaseUrl/course/$courseId'), headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode == 200) {
       return (jsonDecode(response.body)['members'] as List).map((m) => CourseMember.fromJson(m)).toList();
     } else {
@@ -140,8 +143,20 @@ class CourseService {
     }
   }
 
+  Future<void> addMember(String token, int courseId, String username, CourseRole role) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/course/$courseId/members'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({'username': username, 'role': role.name}),
+    );
+    if (response.statusCode != 200) {
+      final error = jsonDecode(response.body);
+      throw Exception('Не вдалося додати учасника: ${error['message'] ?? 'Невідома помилка'}');
+    }
+  }
+
   Future<List<CourseMaterial>> getCourseMaterials(String token, int courseId) async {
-    final response = await http.get(Uri.parse('$_baseUrl/$courseId/materials'), headers: {'Authorization': 'Bearer $token'});
+    final response = await http.get(Uri.parse('$_apiBaseUrl/course/$courseId/materials'), headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode == 200) {
       return (jsonDecode(response.body)['materials'] as List).map((m) => CourseMaterial.fromJson(m)).toList();
     } else {
@@ -150,7 +165,7 @@ class CourseService {
   }
 
   Future<CourseMaterial> getMaterialDetails(String token, int courseId, int materialId) async {
-    final response = await http.get(Uri.parse('$_baseUrl/$courseId/materials/$materialId'), headers: {'Authorization': 'Bearer $token'});
+    final response = await http.get(Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'), headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode == 200) {
       return CourseMaterial.fromJson(jsonDecode(response.body));
     } else {
@@ -160,7 +175,7 @@ class CourseService {
 
   Future<int> createMaterial(String token, int courseId, String topic, String textContent, List<String> tags) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/$courseId/materials'),
+      Uri.parse('$_apiBaseUrl/course/$courseId/materials'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       body: jsonEncode({
         'topic': topic,
@@ -177,13 +192,12 @@ class CourseService {
 
   Future<void> updateMaterial(String token, int courseId, int materialId, String topic, String textContent, List<String> tags) async {
     final response = await http.put(
-      Uri.parse('$_baseUrl/$courseId/materials/$materialId'),
+      Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
       body: jsonEncode({
         'topic': topic,
         'textContent': textContent,
         'tags': tags.map((name) => {'name': name}).toList(),
-        'media': [],
       }),
     );
     if (response.statusCode != 200) {
@@ -191,32 +205,31 @@ class CourseService {
     }
   }
 
-  Future<void> uploadMaterialFile(String token, int courseId, int materialId, PlatformFile file) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$_baseUrl/$courseId/materials/$materialId/media'));
-    request.headers['Authorization'] = 'Bearer $token';
-    request.files.add(await http.MultipartFile.fromPath('file', file.path!));
-    var response = await request.send();
+  Future<void> addMediaToMaterial(String token, int courseId, int materialId, String fileUrl, String fileName) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId/media'),
+      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'name': fileName,
+        'fileUrl': fileUrl,
+      }),
+    );
     if (response.statusCode != 200) {
-      throw Exception('Не вдалося завантажити файл. Статус: ${response.statusCode}');
+      throw Exception('Не вдалося додати медіафайл. Статус: ${response.statusCode}');
+    }
+  }
+
+  Future<void> deleteMaterialFile(String token, int courseId, int materialId, int mediaId) async {
+    final response = await http.delete(Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId/media/$mediaId'), headers: {'Authorization': 'Bearer $token'});
+    if (response.statusCode != 200) {
+      throw Exception('Не вдалося видалити файл. Статус: ${response.statusCode}');
     }
   }
 
   Future<void> deleteMaterial(String token, int courseId, int materialId) async {
-    final response = await http.delete(Uri.parse('$_baseUrl/$courseId/materials/$materialId'), headers: {'Authorization': 'Bearer $token'});
+    final response = await http.delete(Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'), headers: {'Authorization': 'Bearer $token'});
     if (response.statusCode != 200) {
       throw Exception('Не вдалося видалити матеріал. Статус: ${response.statusCode}');
-    }
-  }
-
-  Future<void> addMember(String token, int courseId, String username, CourseRole role) async {
-    final response = await http.post(
-      Uri.parse('$_baseUrl/$courseId/members'),
-      headers: {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'role': role.name}),
-    );
-    if (response.statusCode != 200) {
-      final error = jsonDecode(response.body);
-      throw Exception('Не вдалося додати учасника: ${error['message'] ?? 'Невідома помилка'}');
     }
   }
 }
@@ -350,7 +363,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
   }
 }
 
-// --- ВІДЖЕТ КАРТКИ КУРСУ ---
 class _CourseCard extends StatelessWidget {
   final Course course;
   final String authToken;
@@ -419,7 +431,6 @@ class _CourseCard extends StatelessWidget {
   }
 }
 
-// --- ЕКРАН ДЕТАЛЕЙ КУРСУ ---
 class CourseDetailScreen extends StatefulWidget {
   final Course course;
   final String authToken;
@@ -668,7 +679,7 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
       ),
       floatingActionButton: canManage ? FloatingActionButton(onPressed: () async {
         final result = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) =>
-            CreateOrEditMaterialScreen(
+            CreateMaterialScreen(
               authToken: widget.authToken,
               courseId: widget.courseId,
             )
@@ -705,6 +716,15 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     });
   }
 
+  Future<void> _launchFileUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не вдалося відкрити посилання: $url')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -717,7 +737,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
               onPressed: () async {
                 final materialToEdit = await _materialFuture;
                 final result = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) =>
-                    CreateOrEditMaterialScreen(
+                    EditMaterialScreen(
                       authToken: widget.authToken,
                       courseId: widget.courseId,
                       material: materialToEdit,
@@ -776,7 +796,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
               ...material.media.map((file) => ListTile(
                 leading: const Icon(Icons.attach_file),
                 title: Text(file.displayName),
-                onTap: () {},
+                onTap: () => _launchFileUrl(file.fileUrl),
               )),
             ],
           );
@@ -786,31 +806,22 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   }
 }
 
-class CreateOrEditMaterialScreen extends StatefulWidget {
+class CreateMaterialScreen extends StatefulWidget {
   final String authToken;
   final int courseId;
-  final CourseMaterial? material;
-  const CreateOrEditMaterialScreen({super.key, required this.authToken, required this.courseId, this.material});
+  const CreateMaterialScreen({super.key, required this.authToken, required this.courseId});
 
   @override
-  State<CreateOrEditMaterialScreen> createState() => _CreateOrEditMaterialScreenState();
+  State<CreateMaterialScreen> createState() => _CreateMaterialScreenState();
 }
 
-class _CreateOrEditMaterialScreenState extends State<CreateOrEditMaterialScreen> {
+class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _topicController;
-  late TextEditingController _contentController;
-  late TextEditingController _tagsController;
+  final _topicController = TextEditingController();
+  final _contentController = TextEditingController();
+  final _tagsController = TextEditingController();
   final List<PlatformFile> _pickedFiles = [];
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _topicController = TextEditingController(text: widget.material?.topic);
-    _contentController = TextEditingController(text: widget.material?.textContent);
-    _tagsController = TextEditingController(text: widget.material?.tags.map((t) => t.name).join(', '));
-  }
 
   Future<void> _pickFiles() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -819,9 +830,103 @@ class _CreateOrEditMaterialScreenState extends State<CreateOrEditMaterialScreen>
       allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
     );
     if (result != null) {
-      setState(() {
-        _pickedFiles.addAll(result.files);
-      });
+      setState(() => _pickedFiles.addAll(result.files));
+    }
+  }
+
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
+      try {
+        final tags = _tagsController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+        final materialId = await CourseService().createMaterial(widget.authToken, widget.courseId, _topicController.text, _contentController.text, tags);
+        for (final file in _pickedFiles) {
+          final pCloudService = PCloudService();
+          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, materialId, fileUrl, file.name);
+        }
+        if (mounted) Navigator.pop(context, true);
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Помилка: $e')));
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Новий матеріал')),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(controller: _topicController, decoration: const InputDecoration(labelText: 'Тема', border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'Введіть тему' : null),
+            const SizedBox(height: 16),
+            TextFormField(controller: _contentController, decoration: const InputDecoration(labelText: 'Зміст', border: OutlineInputBorder()), maxLines: 8),
+            const SizedBox(height: 16),
+            TextFormField(controller: _tagsController, decoration: const InputDecoration(labelText: 'Теги (через кому)', border: OutlineInputBorder())),
+            const SizedBox(height: 24),
+            OutlinedButton.icon(icon: const Icon(Icons.attach_file), label: const Text('Додати файли'), onPressed: _pickFiles),
+            const SizedBox(height: 8),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _pickedFiles.length,
+              itemBuilder: (context, index) {
+                final file = _pickedFiles[index];
+                return Card(child: ListTile(
+                  leading: const Icon(Icons.insert_drive_file_outlined),
+                  title: Text(file.name, overflow: TextOverflow.ellipsis),
+                  subtitle: Text('${(file.size / 1024).toStringAsFixed(2)} KB'),
+                  trailing: IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => setState(() => _pickedFiles.removeAt(index))),
+                ));
+              },
+            ),
+            const SizedBox(height: 32),
+            ElevatedButton(onPressed: _isLoading ? null : _submitForm, child: _isLoading ? const CircularProgressIndicator() : const Text('Зберегти')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EditMaterialScreen extends StatefulWidget {
+  final String authToken;
+  final int courseId;
+  final CourseMaterial material;
+  const EditMaterialScreen({super.key, required this.authToken, required this.courseId, required this.material});
+
+  @override
+  State<EditMaterialScreen> createState() => _EditMaterialScreenState();
+}
+
+class _EditMaterialScreenState extends State<EditMaterialScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _topicController;
+  late TextEditingController _contentController;
+  late TextEditingController _tagsController;
+
+  late List<MediaFile> _existingFiles;
+  final List<PlatformFile> _newFiles = [];
+  final List<MediaFile> _filesToDelete = [];
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _topicController = TextEditingController(text: widget.material.topic);
+    _contentController = TextEditingController(text: widget.material.textContent);
+    _tagsController = TextEditingController(text: widget.material.tags.map((t) => t.name).join(', '));
+    _existingFiles = List.from(widget.material.media);
+  }
+
+  Future<void> _pickFiles() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(allowMultiple: true, type: FileType.custom, allowedExtensions: ['pdf', 'doc', 'docx', 'ppt', 'pptx']);
+    if (result != null) {
+      setState(() => _newFiles.addAll(result.files));
     }
   }
 
@@ -831,15 +936,13 @@ class _CreateOrEditMaterialScreenState extends State<CreateOrEditMaterialScreen>
       try {
         final tags = _tagsController.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
 
-        if (widget.material == null) {
-          // Створення нового матеріалу
-          final materialId = await CourseService().createMaterial(widget.authToken, widget.courseId, _topicController.text, _contentController.text, tags);
-          for (final file in _pickedFiles) {
-            await CourseService().uploadMaterialFile(widget.authToken, widget.courseId, materialId, file);
-          }
-        } else {
-          // Оновлення існуючого
-          await CourseService().updateMaterial(widget.authToken, widget.courseId, widget.material!.id, _topicController.text, _contentController.text, tags);
+        await CourseService().updateMaterial(widget.authToken, widget.courseId, widget.material.id, _topicController.text, _contentController.text, tags);
+        for (final file in _newFiles) {
+          final pCloudService = PCloudService();
+          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, widget.material.id, fileUrl, file.name);
+        }
+        for (final fileToDelete in _filesToDelete) {
+          await CourseService().deleteMaterialFile(widget.authToken, widget.courseId, widget.material.id, fileToDelete.id);
         }
 
         if (mounted) Navigator.pop(context, true);
@@ -854,59 +957,54 @@ class _CreateOrEditMaterialScreenState extends State<CreateOrEditMaterialScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.material == null ? 'Новий матеріал' : 'Редагувати матеріал')),
+      appBar: AppBar(title: const Text('Редагувати матеріал')),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            TextFormField(
-              controller: _topicController,
-              decoration: const InputDecoration(labelText: 'Тема', border: OutlineInputBorder()),
-              validator: (v) => v!.isEmpty ? 'Введіть тему' : null,
-            ),
+            TextFormField(controller: _topicController, decoration: const InputDecoration(labelText: 'Тема', border: OutlineInputBorder()), validator: (v) => v!.isEmpty ? 'Введіть тему' : null),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _contentController,
-              decoration: const InputDecoration(labelText: 'Зміст', border: OutlineInputBorder()),
-              maxLines: 8,
-            ),
+            TextFormField(controller: _contentController, decoration: const InputDecoration(labelText: 'Зміст', border: OutlineInputBorder()), maxLines: 8),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _tagsController,
-              decoration: const InputDecoration(labelText: 'Теги (через кому)', border: OutlineInputBorder()),
-            ),
+            TextFormField(controller: _tagsController, decoration: const InputDecoration(labelText: 'Теги (через кому)', border: OutlineInputBorder())),
             const SizedBox(height: 24),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.attach_file),
-              label: const Text('Додати файли'),
-              onPressed: _pickFiles,
-            ),
-            const SizedBox(height: 8),
+
+            const Text('Прикріплені файли', style: TextStyle(fontWeight: FontWeight.bold)),
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _pickedFiles.length,
+              itemCount: _existingFiles.length,
               itemBuilder: (context, index) {
-                final file = _pickedFiles[index];
-                return Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.insert_drive_file_outlined),
-                    title: Text(file.name, overflow: TextOverflow.ellipsis),
-                    subtitle: Text('${(file.size / 1024).toStringAsFixed(2)} KB'),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () => setState(() => _pickedFiles.removeAt(index)),
-                    ),
-                  ),
-                );
+                final file = _existingFiles[index];
+                return Card(child: ListTile(
+                  leading: const Icon(Icons.insert_drive_file),
+                  title: Text(file.displayName),
+                  trailing: IconButton(icon: const Icon(Icons.delete_outline, color: Colors.red), onPressed: () => setState(() {
+                    _filesToDelete.add(file);
+                    _existingFiles.removeAt(index);
+                  })),
+                ));
               },
             ),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _submitForm,
-              child: _isLoading ? const CircularProgressIndicator() : const Text('Зберегти'),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(icon: const Icon(Icons.attach_file), label: const Text('Додати нові файли'), onPressed: _pickFiles),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _newFiles.length,
+              itemBuilder: (context, index) {
+                final file = _newFiles[index];
+                return Card(child: ListTile(
+                  leading: const Icon(Icons.upload_file),
+                  title: Text(file.name),
+                  trailing: IconButton(icon: const Icon(Icons.close, color: Colors.red), onPressed: () => setState(() => _newFiles.removeAt(index))),
+                ));
+              },
             ),
+
+            const SizedBox(height: 32),
+            ElevatedButton(onPressed: _isLoading ? null : _submitForm, child: _isLoading ? const CircularProgressIndicator() : const Text('Зберегти зміни')),
           ],
         ),
       ),
