@@ -4,7 +4,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import 'pcloud_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_filex/open_filex.dart';
 
 enum CourseRole { OWNER, PROFESSOR, LEADER, STUDENT, VIEWER }
 
@@ -716,15 +717,70 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     });
   }
 
-  Future<void> _launchFileUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  Future<void> _downloadAndOpenFile(String publicUrl, String fileName) async {
+    print('--- DEBUG: Отримана URL для обробки: $publicUrl ---');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Обробка файлу: $fileName...')),
+    );
+
+    try {
+      String directDownloadUrl;
+      final uri = Uri.parse(publicUrl);
+      final code = uri.queryParameters['code'];
+
+      if (code == null) {
+        throw Exception("Не вдалося знайти 'code' у посиланні.");
+      }
+      String apiHost;
+      if (uri.host == 'e.pcloud.link') {
+        apiHost = 'eapi.pcloud.com';
+      } else {
+        apiHost = 'api.pcloud.com';
+      }
+      print('Використовуємо API хост: $apiHost');
+      final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
+
+      final apiResponse = await http.get(apiUrl);
+
+      if (apiResponse.statusCode == 200) {
+        final jsonResponse = jsonDecode(apiResponse.body);
+        if (jsonResponse['result'] != 0) {
+          throw Exception("API pCloud повернуло помилку: ${jsonResponse['error']}");
+        }
+        final path = jsonResponse['path'] as String?;
+        final hosts = (jsonResponse['hosts'] as List?) ?? [];
+        if (hosts.isEmpty || path == null) {
+          throw Exception("API pCloud не повернуло необхідні дані для завантаження.");
+        }
+        directDownloadUrl = 'https://${hosts.first}$path';
+        print('Отримано пряме посилання: $directDownloadUrl');
+      } else {
+        throw Exception("Помилка при отриманні прямого посилання від API pCloud. Статус: ${apiResponse.statusCode}");
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Не вдалося відкрити посилання: $url')),
+        SnackBar(content: Text('Завантаження файлу: $fileName...')),
+      );
+      final response = await http.get(Uri.parse(directDownloadUrl));
+      if (response.statusCode == 200) {
+        final tempDir = await getTemporaryDirectory();
+        final filePath = '${tempDir.path}/$fileName';
+        final file = File(filePath);
+        await file.writeAsBytes(response.bodyBytes);
+        final result = await OpenFilex.open(filePath);
+        if (result.type != ResultType.done) {
+          throw Exception('Не вдалося відкрити файл: ${result.message}');
+        }
+      } else {
+        throw Exception('Не вдалося завантажити файл. Статус: ${response.statusCode}');
+      }
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -796,8 +852,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
               ...material.media.map((file) => ListTile(
                 leading: const Icon(Icons.attach_file),
                 title: Text(file.displayName),
-                onTap: () => _launchFileUrl(file.fileUrl),
-              )),
+                onTap: () => _downloadAndOpenFile(file.fileUrl, file.displayName),              )),
             ],
           );
         },
@@ -842,7 +897,8 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
         final materialId = await CourseService().createMaterial(widget.authToken, widget.courseId, _topicController.text, _contentController.text, tags);
         for (final file in _pickedFiles) {
           final pCloudService = PCloudService();
-          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, materialId, fileUrl, file.name);
+          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');
+          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, materialId, fileUrl, file.name);
         }
         if (mounted) Navigator.pop(context, true);
       } catch (e) {
@@ -939,7 +995,8 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
         await CourseService().updateMaterial(widget.authToken, widget.courseId, widget.material.id, _topicController.text, _contentController.text, tags);
         for (final file in _newFiles) {
           final pCloudService = PCloudService();
-          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, widget.material.id, fileUrl, file.name);
+          final fileUrl = await pCloudService.uploadFileAndGetPublicLink(file: file, authToken: widget.authToken, purpose: 'material-file');
+          await CourseService().addMediaToMaterial(widget.authToken, widget.courseId, widget.material.id, fileUrl, file.name);
         }
         for (final fileToDelete in _filesToDelete) {
           await CourseService().deleteMaterialFile(widget.authToken, widget.courseId, widget.material.id, fileToDelete.id);
@@ -1012,7 +1069,6 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
   }
 }
 
-// --- ЕКРАН СТВОРЕННЯ КУРСУ ---
 class CreateCourseScreen extends StatefulWidget {
   final String authToken;
   const CreateCourseScreen({super.key, required this.authToken});
