@@ -6,6 +6,10 @@ import 'dart:io';
 import 'pcloud_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/src/platform_file.dart';
+import 'assignment_screens.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 enum CourseRole { OWNER, PROFESSOR, LEADER, STUDENT, VIEWER }
 
@@ -29,9 +33,7 @@ class Course {
       print("Error: Course JSON missing 'id': $json");
       throw FormatException("Field 'id' is missing in Course JSON.");
     }
-
     int count = json['memberCount'] ?? 0;
-
     return Course(
       id: json['id'],
       name: json['name'] ?? 'Без назви',
@@ -133,6 +135,58 @@ class CourseMaterial {
   }
 }
 
+class Assignment {
+  final int id;
+  final String title;
+  final String description;
+  final String authorUsername;
+  final DateTime? deadline;
+  final int? maxGrade;
+  final List<Tag> tags;
+  final List<MediaFile> media;
+
+  Assignment({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.authorUsername,
+    this.deadline,
+    this.maxGrade,
+    this.tags = const [],
+    this.media = const [],
+  });
+
+  factory Assignment.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(String? dateStr) {
+      if (dateStr == null) return null;
+      try {
+        return DateTime.parse(dateStr);
+      } catch (e) {
+        print("Warning: Could not parse date '$dateStr'");
+        return null;
+      }
+    }
+
+    if (json['id'] == null) {
+      print("Warning: Assignment JSON missing 'id': $json");
+    }
+    return Assignment(
+      id: json['id'] ?? 0,
+      title: json['title'] ?? 'Без теми',
+      description: json['description'] ?? '',
+      authorUsername: json['authorUsername'] ?? 'unknown',
+      deadline: parseDate(json['deadline']),
+      maxGrade: json['maxGrade'],
+      tags: (json['tags'] as List? ?? [])
+          .map((tagJson) => Tag.fromJson(tagJson))
+          .toList(),
+      media: (json['media'] as List? ?? [])
+          .map((fileJson) => MediaFile.fromJson(fileJson))
+          .toList(),
+    );
+  }
+}
+
 class CourseService {
   final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
 
@@ -156,6 +210,45 @@ class CourseService {
     return Exception(
       '$context: $errorMessage (Статус: ${response.statusCode})',
     );
+  }
+
+  Future<String?> getDirectImageUrl(String publicUrl) async {
+    try {
+      final uri = Uri.parse(publicUrl);
+      final code = uri.queryParameters['code'];
+      if (code == null) {
+        print("Warning: Could not find 'code' in image URL: $publicUrl");
+        return null;
+      }
+
+      String apiHost = (uri.host == 'e.pcloud.link')
+          ? 'eapi.pcloud.com'
+          : 'api.pcloud.com';
+      final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
+      final apiResponse = await http.get(apiUrl);
+
+      if (apiResponse.statusCode == 200) {
+        final jsonResponse = jsonDecode(apiResponse.body);
+        if (jsonResponse['result'] == 0) {
+          final path = jsonResponse['path'] as String?;
+          final hosts = (jsonResponse['hosts'] as List?) ?? [];
+          if (hosts.isNotEmpty && path != null) {
+            return 'https://${hosts.first}$path';
+          }
+        } else {
+          print(
+            "pCloud API error for image code $code: ${jsonResponse['error']}",
+          );
+        }
+      } else {
+        print(
+          "Error fetching direct image link from pCloud API: ${apiResponse.statusCode}",
+        );
+      }
+    } catch (e) {
+      print("Error processing image URL $publicUrl: $e");
+    }
+    return null;
   }
 
   Future<List<Course>> getCourses(String token) async {
@@ -526,6 +619,194 @@ class CourseService {
       throw _handleErrorResponse(response, 'Не вдалося видалити матеріал');
     }
   }
+
+  Future<List<Assignment>> getAssignments(String token, int courseId) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map &&
+          decoded.containsKey('assignments') &&
+          decoded['assignments'] is List) {
+        print(
+          "Fetched ${decoded['assignments'].length} assignments for course $courseId.",
+        );
+        return (decoded['assignments'] as List)
+            .map((m) => Assignment.fromJson(m))
+            .toList();
+      } else if (decoded is List) {
+        print(
+          "Fetched ${decoded.length} assignments for course $courseId (direct list).",
+        );
+        return decoded.map((m) => Assignment.fromJson(m)).toList();
+      } else {
+        print(
+          "Error: Invalid assignments list format for course $courseId: $decoded",
+        );
+        throw Exception(
+          'Неправильний формат відповіді від API: відсутнє поле "assignments" або воно не є списком.',
+        );
+      }
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося завантажити завдання');
+    }
+  }
+
+  Future<Assignment> getAssignmentDetails(
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      try {
+        return Assignment.fromJson(jsonDecode(response.body));
+      } catch (e) {
+        print("Error parsing assignment details JSON: $e");
+        throw Exception('Помилка обробки даних завдання.');
+      }
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити деталі завдання',
+      );
+    }
+  }
+
+  Future<int> createAssignment(
+      String token,
+      int courseId,
+      String title,
+      String description,
+      List<String> tags,
+      DateTime? deadline,
+      int? maxGrade,
+      ) async {
+    final body = {
+      'title': title,
+      'description': description,
+      'tags': tags,
+      'deadline': deadline?.toIso8601String(),
+      'maxGrade': maxGrade,
+    };
+
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final body = jsonDecode(response.body);
+      if (body is Map && body.containsKey('id') && body['id'] is int) {
+        return body['id'];
+      } else {
+        print(
+          "Error: Assignment creation response missing or invalid 'id': $body",
+        );
+        throw Exception('API не повернуло ID для створеного завдання.');
+      }
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося створити завдання');
+    }
+  }
+
+  Future<void> patchAssignment(
+      String token,
+      int courseId,
+      int assignmentId,
+      String title,
+      String description,
+      List<String> tags,
+      DateTime? deadline,
+      int? maxGrade,
+      ) async {
+    final patchBody = {
+      'title': title,
+      'description': description,
+      'tags': tags,
+      'deadline': deadline?.toIso8601String(),
+      'maxGrade': maxGrade,
+    };
+    final response = await http.patch(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(patchBody),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося частково оновити завдання',
+      );
+    }
+  }
+
+  Future<void> addMediaToAssignment(
+    String token,
+    int courseId,
+    int assignmentId,
+    String fileUrl,
+    String fileName,
+  ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media',
+      ),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'name': fileName, 'fileUrl': fileUrl}),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося додати медіафайл до завдання',
+      );
+    }
+  }
+
+  Future<void> deleteAssignmentFile(
+    String token,
+    int courseId,
+    int assignmentId,
+    int mediaId,
+  ) async {
+    final response = await http.delete(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media/$mediaId',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося видалити файл завдання');
+    }
+  }
+
+  Future<void> deleteAssignment(
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося видалити завдання');
+    }
+  }
 }
 
 class CoursesScreen extends StatefulWidget {
@@ -566,6 +847,45 @@ class _CoursesScreenState extends State<CoursesScreen> {
         );
       });
     }
+  }
+
+  Future<String?> getDirectImageUrl(String publicUrl) async {
+    try {
+      final uri = Uri.parse(publicUrl);
+      final code = uri.queryParameters['code'];
+      if (code == null) {
+        print("Warning: Could not find 'code' in image URL: $publicUrl");
+        return null;
+      }
+
+      String apiHost = (uri.host == 'e.pcloud.link')
+          ? 'eapi.pcloud.com'
+          : 'api.pcloud.com';
+      final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
+      final apiResponse = await http.get(apiUrl);
+
+      if (apiResponse.statusCode == 200) {
+        final jsonResponse = jsonDecode(apiResponse.body);
+        if (jsonResponse['result'] == 0) {
+          final path = jsonResponse['path'] as String?;
+          final hosts = (jsonResponse['hosts'] as List?) ?? [];
+          if (hosts.isNotEmpty && path != null) {
+            return 'https://${hosts.first}$path';
+          }
+        } else {
+          print(
+            "pCloud API error for image code $code: ${jsonResponse['error']}",
+          );
+        }
+      } else {
+        print(
+          "Error fetching direct image link from pCloud API: ${apiResponse.statusCode}",
+        );
+      }
+    } catch (e) {
+      print("Error processing image URL $publicUrl: $e");
+    }
+    return null;
   }
 
   Future<void> _showJoinCourseDialog() async {
@@ -761,7 +1081,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
   }
 }
 
-class _CourseCard extends StatelessWidget {
+class _CourseCard extends StatefulWidget {
+  // Змінено на StatefulWidget
   final Course course;
   final String authToken;
   final VoidCallback onCourseAction;
@@ -774,6 +1095,76 @@ class _CourseCard extends StatelessWidget {
   });
 
   @override
+  State<_CourseCard> createState() => _CourseCardState();
+}
+
+class _CourseCardState extends State<_CourseCard> {
+  String? _directPhotoUrl;
+  bool _isLoadingPhoto = false;
+  int? _actualMemberCount;
+  bool _isLoadingCount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvePhotoUrl();
+    _fetchMemberCount();
+  }
+
+  Future<void> _resolvePhotoUrl() async {
+    if (widget.course.photoUrl != null && widget.course.photoUrl!.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isLoadingPhoto = true);
+      try {
+        final directUrl = await CourseService().getDirectImageUrl(
+          widget.course.photoUrl!,
+        );
+        if (mounted) {
+          setState(() {
+            _directPhotoUrl = directUrl;
+            _isLoadingPhoto = false;
+          });
+        }
+      } catch (e) {
+        print("Error resolving photo URL for course ${widget.course.id}: $e");
+        if (mounted) {
+          setState(() => _isLoadingPhoto = false);
+        }
+      }
+    }
+  }
+
+  Future<void> _fetchMemberCount() async {
+    if (widget.course.memberCount > 0) {
+      if (mounted)
+        setState(() => _actualMemberCount = widget.course.memberCount);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _isLoadingCount = true);
+    try {
+      final members = await CourseService().getCourseMembers(
+        widget.authToken,
+        widget.course.id,
+      );
+      if (mounted) {
+        setState(() {
+          _actualMemberCount = members.length;
+          _isLoadingCount = false;
+        });
+      }
+    } catch (e) {
+      print("Error fetching member count for course ${widget.course.id}: $e");
+      if (mounted) {
+        setState(() {
+          _isLoadingCount = false;
+          _actualMemberCount = 0;
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     const Color cardColor = Color(0xFF8B80B1);
     const Color textColor = Colors.white;
@@ -783,14 +1174,17 @@ class _CourseCard extends StatelessWidget {
         final result = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                CourseDetailScreen(course: course, authToken: authToken),
+            builder: (context) => CourseDetailScreen(
+              course: widget.course,
+              authToken: widget.authToken,
+            ),
           ),
         );
 
         if (result == true && context.mounted) {
           print("Course action detected, reloading courses...");
-          onCourseAction();
+          widget.onCourseAction();
+          _fetchMemberCount();
         }
       },
       borderRadius: BorderRadius.circular(12),
@@ -816,7 +1210,7 @@ class _CourseCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    course.name,
+                    widget.course.name,
                     style: const TextStyle(
                       color: textColor,
                       fontSize: 18,
@@ -830,25 +1224,43 @@ class _CourseCard extends StatelessWidget {
                   radius: 25,
                   backgroundColor: Colors.white.withOpacity(0.8),
                   backgroundImage:
-                      course.photoUrl != null && course.photoUrl!.isNotEmpty
-                      ? NetworkImage(course.photoUrl!)
+                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
+                      ? NetworkImage(_directPhotoUrl!)
                       : null,
-
                   onBackgroundImageError:
-                      course.photoUrl != null && course.photoUrl!.isNotEmpty
+                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
                       ? (_, __) {
                           print(
-                            "Error loading course image: ${course.photoUrl}",
+                            "Error loading direct image in Card: $_directPhotoUrl",
                           );
+                          if (mounted) {
+                            // Скидаємо URL при помилці, щоб показалась іконка
+                            // Перевіряємо ще раз, чи URL справді той самий, що викликав помилку
+                            if (_directPhotoUrl == _directPhotoUrl) {
+                              setState(() {
+                                _directPhotoUrl = null;
+                                _isLoadingPhoto = false;
+                              });
+                            }
+                          }
                         }
                       : null,
-                  child: course.photoUrl == null || course.photoUrl!.isEmpty
-                      ? Icon(
-                          Icons.school_outlined,
-                          color: cardColor.withOpacity(0.9),
-                          size: 30,
+                  child: _isLoadingPhoto
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cardColor,
+                          ),
                         )
-                      : null,
+                      : (_directPhotoUrl == null || _directPhotoUrl!.isEmpty
+                            ? Icon(
+                                Icons.school_outlined,
+                                color: cardColor.withOpacity(0.9),
+                                size: 30,
+                              )
+                            : null),
                 ),
               ],
             ),
@@ -861,24 +1273,34 @@ class _CourseCard extends StatelessWidget {
                   size: 16,
                 ),
                 const SizedBox(width: 4),
-
-                Text(
-                  '${course.memberCount} учасників',
-                  style: const TextStyle(color: textColor, fontSize: 12),
-                ),
+                _isLoadingCount
+                    ? SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Colors.white70,
+                        ),
+                      )
+                    : Text(
+                        '${_actualMemberCount ?? 0} учасників',
+                        style: const TextStyle(color: textColor, fontSize: 12),
+                      ),
               ],
             ),
             const SizedBox(height: 4),
             Row(
               children: [
                 Icon(
-                  course.isOpen ? Icons.lock_open_outlined : Icons.lock_outline,
+                  widget.course.isOpen
+                      ? Icons.lock_open_outlined
+                      : Icons.lock_outline,
                   color: textColor.withOpacity(0.8),
                   size: 16,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  course.isOpen ? 'Відкритий' : 'Закритий',
+                  widget.course.isOpen ? 'Відкритий' : 'Закритий',
                   style: const TextStyle(color: textColor, fontSize: 12),
                 ),
               ],
@@ -912,7 +1334,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   late String _courseName;
   String? _coursePhotoUrl;
   late bool _courseIsOpen;
-
+  File? _newCourseImageFile;
+  final ImagePicker _picker = ImagePicker();
   final String _currentUsername = "test_user";
 
   @override
@@ -921,7 +1344,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     _courseName = widget.course.name;
     _coursePhotoUrl = widget.course.photoUrl;
     _courseIsOpen = widget.course.isOpen;
-
+    initializeDateFormatting('uk_UA', null);
     _tabController = TabController(length: 6, vsync: this);
     _determineCurrentUserRole();
   }
@@ -966,68 +1389,187 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Future<void> _editCourse() async {
     final newNameController = TextEditingController(text: _courseName);
-    final newPhotoUrlController = TextEditingController(
-      text: _coursePhotoUrl ?? '',
-    );
+    String? currentEditPhotoUrl = _coursePhotoUrl;
+    File? newSelectedImageFile;
 
     final updatedData = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Редагувати курс'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: newNameController,
-              decoration: InputDecoration(labelText: 'Назва курсу'),
-              maxLength: 100,
-            ),
-            TextField(
-              controller: newPhotoUrlController,
-              decoration: InputDecoration(
-                labelText: 'URL фото (необов\'язково)',
-                hintText: 'https://example.com/image.png',
+      builder: (dialogContext) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Редагувати курс'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey.shade300,
+                          backgroundImage: newSelectedImageFile != null
+                              ? FileImage(newSelectedImageFile!)
+                              : (currentEditPhotoUrl != null &&
+                                            currentEditPhotoUrl!.isNotEmpty
+                                        ? NetworkImage(currentEditPhotoUrl!)
+                                        : null)
+                                    as ImageProvider?,
+                          child:
+                              newSelectedImageFile == null &&
+                                  (currentEditPhotoUrl == null ||
+                                      currentEditPhotoUrl!.isEmpty)
+                              ? Icon(
+                                  Icons.school_outlined,
+                                  size: 50,
+                                  color: Colors.grey.shade600,
+                                )
+                              : null,
+                        ),
+                        IconButton(
+                          icon: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).primaryColorLight.withOpacity(0.9),
+                            child: Icon(
+                              Icons.edit,
+                              color: Theme.of(context).primaryColorDark,
+                              size: 18,
+                            ),
+                          ),
+                          tooltip: 'Змінити фото курсу',
+                          onPressed: isSaving
+                              ? null
+                              : () async {
+                                  try {
+                                    final XFile? pickedFile = await _picker
+                                        .pickImage(
+                                          source: ImageSource.gallery,
+                                          imageQuality: 85,
+                                          maxWidth: 1024,
+                                          maxHeight: 1024,
+                                        );
+                                    if (pickedFile != null) {
+                                      setDialogState(() {
+                                        newSelectedImageFile = File(
+                                          pickedFile.path,
+                                        );
+                                        currentEditPhotoUrl = null;
+                                      });
+                                    }
+                                  } catch (e) {
+                                    if (mounted)
+                                      ScaffoldMessenger.of(
+                                        dialogContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Помилка вибору: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                  }
+                                },
+                        ),
+                        if (newSelectedImageFile != null ||
+                            (currentEditPhotoUrl != null &&
+                                currentEditPhotoUrl!.isNotEmpty))
+                          Positioned(
+                            top: -5,
+                            right: -5,
+                            child: IconButton(
+                              icon: CircleAvatar(
+                                radius: 15,
+                                backgroundColor: Colors.red.withOpacity(0.8),
+                                child: Icon(
+                                  Icons.close,
+                                  color: Colors.white,
+                                  size: 15,
+                                ),
+                              ),
+                              tooltip: 'Видалити фото',
+                              onPressed: isSaving
+                                  ? null
+                                  : () {
+                                      setDialogState(() {
+                                        newSelectedImageFile = null;
+                                        currentEditPhotoUrl = null;
+                                      });
+                                    },
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: newNameController,
+                      decoration: InputDecoration(labelText: 'Назва курсу'),
+                      maxLength: 100,
+                      enabled: !isSaving,
+                    ),
+                  ],
+                ),
               ),
-              keyboardType: TextInputType.url,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Скасувати'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (newNameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Назва курсу не може бути порожньою.'),
-                    backgroundColor: Colors.orange,
-                  ),
-                );
-                return;
-              }
-              Navigator.pop(context, {
-                'name': newNameController.text.trim(),
-                'photoUrl': newPhotoUrlController.text.trim(),
-              });
-            },
-            child: Text('Зберегти'),
-          ),
-        ],
-      ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text('Скасувати'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving
+                      ? null
+                      : () {
+                          if (newNameController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Назва курсу не може бути порожньою.',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(dialogContext, {
+                            'name': newNameController.text.trim(),
+                            'newImageFile': newSelectedImageFile,
+                            'removeCurrentImage':
+                                currentEditPhotoUrl == null &&
+                                widget.course.photoUrl != null,
+                          });
+                        },
+                  child: isSaving
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text('Зберегти'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     if (updatedData != null && mounted) {
       final newName = updatedData['name'] as String?;
-      final newPhotoUrl = updatedData['photoUrl'] as String?;
+      final File? newlyPickedImageFile = updatedData['newImageFile'] as File?;
+      final bool removeCurrentImage =
+          updatedData['removeCurrentImage'] as bool? ?? false;
 
       if (newName != null && newName.isNotEmpty) {
-        bool hasChanges =
-            newName != _courseName ||
-            (newPhotoUrl?.isNotEmpty == true ? newPhotoUrl : null) !=
-                _coursePhotoUrl;
+        bool nameChanged = newName != _courseName;
+        bool imageChanged = newlyPickedImageFile != null || removeCurrentImage;
+        bool hasChanges = nameChanged || imageChanged;
 
         if (!hasChanges) {
           print("No changes detected in course edit.");
@@ -1035,20 +1577,53 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         }
 
         final scaffoldMessenger = ScaffoldMessenger.of(context);
-
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (_) => Center(child: CircularProgressIndicator()),
         );
 
+        String? finalPhotoUrl = _coursePhotoUrl;
+
         try {
+          if (newlyPickedImageFile != null) {
+            scaffoldMessenger.hideCurrentSnackBar();
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(
+                content: Text('Завантаження нового фото...'),
+                duration: Duration(minutes: 1),
+              ),
+            );
+
+            final pCloudService = PCloudService();
+            final platformFile = PlatformFile(
+              name: newlyPickedImageFile.path.split('/').last,
+              path: newlyPickedImageFile.path,
+              size: await newlyPickedImageFile.length(),
+            );
+            finalPhotoUrl = await pCloudService.uploadFileAndGetPublicLink(
+              file: platformFile,
+              authToken: widget.authToken,
+              purpose: 'course-photo',
+            );
+            scaffoldMessenger.hideCurrentSnackBar();
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(
+                content: Text('Нове фото завантажено!'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          } else if (removeCurrentImage) {
+            finalPhotoUrl = null;
+          }
+
           await CourseService().updateCourse(
             widget.authToken,
             widget.course.id,
             newName,
-            photoUrl: (newPhotoUrl?.isNotEmpty == true) ? newPhotoUrl : null,
+            photoUrl: finalPhotoUrl,
           );
+
           Navigator.pop(context);
           if (mounted) {
             scaffoldMessenger.showSnackBar(
@@ -1056,9 +1631,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             );
             setState(() {
               _courseName = newName;
-              _coursePhotoUrl = (newPhotoUrl?.isNotEmpty == true)
-                  ? newPhotoUrl
-                  : null;
+              _coursePhotoUrl = finalPhotoUrl;
             });
           }
         } catch (e) {
@@ -1186,8 +1759,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               controller: _tabController,
               children: [
                 const Center(child: Text("Вкладка 'Стрічка' в розробці.")),
-                const Center(child: Text("Вкладка 'Завдання' в розробці.")),
-
+                AssignmentsTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUserRole: _currentUserRole,
+                ),
                 MaterialsTabView(
                   authToken: widget.authToken,
                   courseId: widget.course.id,
@@ -2504,16 +3080,18 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
         allowMultiple: true,
         type: FileType.any,
       );
-      if (result != null && mounted)
+      if (result != null && mounted) {
         setState(() => _newFiles.addAll(result.files));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Помилка вибору файлів: $e'),
             backgroundColor: Colors.red,
           ),
         );
+      }
     }
   }
 
@@ -2548,7 +3126,6 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
           content,
           tags,
         );
-
         if (_filesToDelete.isNotEmpty) {
           scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
@@ -2843,11 +3420,39 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
   final _nameController = TextEditingController();
   final CourseService _courseService = CourseService();
   bool _isCreating = false;
+  File? _courseImageFile;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    if (_isCreating) return;
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1024,
+        maxHeight: 1024,
+      );
+      if (pickedFile != null && mounted) {
+        setState(() {
+          _courseImageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Помилка вибору зображення: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _submitForm() async {
@@ -2856,11 +3461,46 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
       setState(() => _isCreating = true);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       FocusScope.of(context).unfocus();
+
+      String? finalPhotoUrl;
+
       try {
+        if (_courseImageFile != null) {
+          scaffoldMessenger.hideCurrentSnackBar();
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Завантаження фото курсу...'),
+              duration: Duration(minutes: 1),
+            ),
+          );
+
+          final pCloudService = PCloudService();
+          final platformFile = PlatformFile(
+            name: _courseImageFile!.path.split('/').last,
+            path: _courseImageFile!.path,
+            size: await _courseImageFile!.length(),
+          );
+
+          finalPhotoUrl = await pCloudService.uploadFileAndGetPublicLink(
+            file: platformFile,
+            authToken: widget.authToken,
+            purpose: 'course-photo',
+          );
+
+          scaffoldMessenger.hideCurrentSnackBar();
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Фото завантажено! Створення курсу...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         await _courseService.createCourse(
           widget.authToken,
           _nameController.text.trim(),
+          photoUrl: finalPhotoUrl,
         );
+
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('Курс успішно створено!')),
@@ -2868,7 +3508,8 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
           Navigator.pop(context, true);
         }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
+          scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -2877,6 +3518,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
               backgroundColor: Colors.red,
             ),
           );
+        }
       } finally {
         if (mounted) setState(() => _isCreating = false);
       }
@@ -2896,9 +3538,37 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: _courseImageFile != null
+                        ? FileImage(_courseImageFile!)
+                        : null,
+                    child: _courseImageFile == null
+                        ? Icon(
+                            Icons.school_outlined,
+                            size: 60,
+                            color: Colors.grey.shade600,
+                          )
+                        : null,
+                  ),
+                  IconButton(
+                    icon: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: primaryColor,
+                      child: Icon(Icons.edit, color: Colors.white, size: 20),
+                    ),
+                    tooltip: 'Обрати фото курсу',
+                    onPressed: _pickImage,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 30),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -2914,7 +3584,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   return null;
                 },
               ),
-              const Spacer(),
+              const SizedBox(height: 40),
               ElevatedButton.icon(
                 icon: _isCreating
                     ? SizedBox(
@@ -2935,6 +3605,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   textStyle: TextStyle(fontSize: 16),
                 ),
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),

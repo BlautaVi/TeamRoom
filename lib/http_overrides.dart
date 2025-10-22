@@ -1,6 +1,5 @@
 import 'dart:io';
 
-// Використовуй тільки для розробки!
 class MyHttpOverrides extends HttpOverrides {
   @override
   HttpClient createHttpClient(SecurityContext? context) {
