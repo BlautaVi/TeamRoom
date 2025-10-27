@@ -40,7 +40,10 @@ class _LoginScreenState extends State<LoginScreen> {
             if (mounted) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (context) => HomeScreen(authToken: authToken),
+                  builder: (context) => HomeScreen(
+                    authToken: authToken,
+                    username: login,  // Pass the username from login
+                  ),
                 ),
               );
             }

@@ -6,7 +6,13 @@ import 'CoursesScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String authToken;
-  const HomeScreen({super.key, required this.authToken});
+  final String username;
+  
+  const HomeScreen({
+    super.key, 
+    required this.authToken,
+    required this.username,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -37,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
       ),
-      CoursesScreen(authToken: widget.authToken),
+      CoursesScreen(authToken: widget.authToken, currentUsername: widget.username),
       const Center(
           child: Text('Сторінка Відео',
               style: TextStyle(fontSize: 24, color: Color(0xFF62567E)))),
@@ -68,7 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF7C6BA3);
-    const Color backgroundColor = Colors.white;
     const Color indicatorColor = Color(0xFF62567E);
     if (_selectedChatIndex != null) {
       return _buildChatConversationView();

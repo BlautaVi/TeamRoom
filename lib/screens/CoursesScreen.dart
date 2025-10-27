@@ -7,185 +7,10 @@ import 'pcloud_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/src/platform_file.dart';
 import 'assignment_screens.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
-enum CourseRole { OWNER, PROFESSOR, LEADER, STUDENT, VIEWER }
-
-class Course {
-  final int id;
-  final String name;
-  final String? photoUrl;
-  final bool isOpen;
-  final int memberCount;
-
-  Course({
-    required this.id,
-    required this.name,
-    this.photoUrl,
-    required this.isOpen,
-    required this.memberCount,
-  });
-
-  factory Course.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Error: Course JSON missing 'id': $json");
-      throw FormatException("Field 'id' is missing in Course JSON.");
-    }
-    int count = json['memberCount'] ?? 0;
-    return Course(
-      id: json['id'],
-      name: json['name'] ?? 'Без назви',
-      photoUrl: json['photoUrl'],
-      isOpen: json['open'] ?? true,
-      memberCount: count,
-    );
-  }
-}
-
-class CourseMember {
-  final String username;
-  final CourseRole role;
-
-  CourseMember({required this.username, required this.role});
-
-  factory CourseMember.fromJson(Map<String, dynamic> json) {
-    String roleString = (json['role'] as String?)?.toUpperCase() ?? 'VIEWER';
-
-    CourseRole role = CourseRole.values.firstWhere(
-      (e) => e.name.toUpperCase() == roleString,
-      orElse: () {
-        print(
-          "Warning: Unknown role '$roleString' received for user '${json['username']}'. Defaulting to VIEWER.",
-        );
-        return CourseRole.VIEWER;
-      },
-    );
-    return CourseMember(username: json['username'] ?? 'unknown', role: role);
-  }
-}
-
-class Tag {
-  final String name;
-
-  Tag({required this.name});
-
-  factory Tag.fromJson(Map<String, dynamic> json) =>
-      Tag(name: json['name'] ?? '');
-}
-
-class MediaFile {
-  final int id;
-  final String displayName;
-  final String fileUrl;
-
-  MediaFile({
-    required this.id,
-    required this.displayName,
-    required this.fileUrl,
-  });
-
-  factory MediaFile.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Warning: MediaFile JSON missing 'id': $json");
-    }
-    return MediaFile(
-      id: json['id'] ?? 0,
-      displayName:
-          json['name'] ?? json['fileUrl']?.split('/').last ?? 'unnamed_file',
-      fileUrl: json['fileUrl'] ?? '',
-    );
-  }
-}
-
-class CourseMaterial {
-  final int id;
-  final String topic;
-  final String textContent;
-  final String authorUsername;
-  final List<Tag> tags;
-  final List<MediaFile> media;
-
-  CourseMaterial({
-    required this.id,
-    required this.topic,
-    required this.textContent,
-    required this.authorUsername,
-    this.tags = const [],
-    this.media = const [],
-  });
-
-  factory CourseMaterial.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Warning: CourseMaterial JSON missing 'id': $json");
-    }
-    return CourseMaterial(
-      id: json['id'] ?? 0,
-      topic: json['topic'] ?? 'Без теми',
-      textContent: json['textContent'] ?? '',
-      authorUsername: json['authorUsername'] ?? 'unknown',
-      tags: (json['tags'] as List? ?? [])
-          .map((tagJson) => Tag.fromJson(tagJson))
-          .toList(),
-      media: (json['media'] as List? ?? [])
-          .map((fileJson) => MediaFile.fromJson(fileJson))
-          .toList(),
-    );
-  }
-}
-
-class Assignment {
-  final int id;
-  final String title;
-  final String description;
-  final String authorUsername;
-  final DateTime? deadline;
-  final int? maxGrade;
-  final List<Tag> tags;
-  final List<MediaFile> media;
-
-  Assignment({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.authorUsername,
-    this.deadline,
-    this.maxGrade,
-    this.tags = const [],
-    this.media = const [],
-  });
-
-  factory Assignment.fromJson(Map<String, dynamic> json) {
-    DateTime? parseDate(String? dateStr) {
-      if (dateStr == null) return null;
-      try {
-        return DateTime.parse(dateStr);
-      } catch (e) {
-        print("Warning: Could not parse date '$dateStr'");
-        return null;
-      }
-    }
-
-    if (json['id'] == null) {
-      print("Warning: Assignment JSON missing 'id': $json");
-    }
-    return Assignment(
-      id: json['id'] ?? 0,
-      title: json['title'] ?? 'Без теми',
-      description: json['description'] ?? '',
-      authorUsername: json['authorUsername'] ?? 'unknown',
-      deadline: parseDate(json['deadline']),
-      maxGrade: json['maxGrade'],
-      tags: (json['tags'] as List? ?? [])
-          .map((tagJson) => Tag.fromJson(tagJson))
-          .toList(),
-      media: (json['media'] as List? ?? [])
-          .map((fileJson) => MediaFile.fromJson(fileJson))
-          .toList(),
-    );
-  }
-}
+import 'package:intl/intl.dart';
+import '../classes/course_models.dart';
 
 class CourseService {
   final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
@@ -194,11 +19,9 @@ class CourseService {
     String errorMessage = 'Невідома помилка';
     try {
       final error = jsonDecode(response.body);
-      if (error is Map && error.containsKey('message')) {
-        errorMessage = error['message'];
-      } else {
-        errorMessage = response.body;
-      }
+      errorMessage = (error is Map && error.containsKey('message'))
+          ? error['message']
+          : response.body;
     } catch (_) {
       errorMessage = response.body.isEmpty
           ? 'Порожня відповідь'
@@ -216,17 +39,12 @@ class CourseService {
     try {
       final uri = Uri.parse(publicUrl);
       final code = uri.queryParameters['code'];
-      if (code == null) {
-        print("Warning: Could not find 'code' in image URL: $publicUrl");
-        return null;
-      }
-
+      if (code == null) return null;
       String apiHost = (uri.host == 'e.pcloud.link')
           ? 'eapi.pcloud.com'
           : 'api.pcloud.com';
       final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
       final apiResponse = await http.get(apiUrl);
-
       if (apiResponse.statusCode == 200) {
         final jsonResponse = jsonDecode(apiResponse.body);
         if (jsonResponse['result'] == 0) {
@@ -235,15 +53,7 @@ class CourseService {
           if (hosts.isNotEmpty && path != null) {
             return 'https://${hosts.first}$path';
           }
-        } else {
-          print(
-            "pCloud API error for image code $code: ${jsonResponse['error']}",
-          );
         }
-      } else {
-        print(
-          "Error fetching direct image link from pCloud API: ${apiResponse.statusCode}",
-        );
       }
     } catch (e) {
       print("Error processing image URL $publicUrl: $e");
@@ -258,19 +68,15 @@ class CourseService {
         headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map &&
             decoded.containsKey('courses') &&
             decoded['courses'] is List) {
-          print("Fetched ${decoded['courses'].length} courses.");
           return (decoded['courses'] as List)
               .map((c) => Course.fromJson(c))
               .toList();
         } else {
-          print("Error: Invalid course list format: $decoded");
-          throw Exception(
-            'Неправильний формат відповіді від API: відсутнє поле "courses" або воно не є списком.',
-          );
+          throw Exception('Неправильний формат відповіді.');
         }
       } else {
         throw _handleErrorResponse(response, 'Не вдалося завантажити курси');
@@ -282,17 +88,22 @@ class CourseService {
   }
 
   Future<void> createCourse(
-    String token,
-    String name, {
-    String? photoUrl,
-  }) async {
+      String token,
+      String name, {
+        String? photoUrl,
+        String? description,
+      }) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({'name': name, 'photoUrl': photoUrl}),
+      body: jsonEncode({
+        'name': name,
+        'photoUrl': photoUrl,
+        'description': description,
+      }),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw _handleErrorResponse(response, 'Не вдалося створити курс');
@@ -300,20 +111,17 @@ class CourseService {
   }
 
   Future<void> updateCourse(
-    String token,
-    int courseId,
-    String name, {
-    String? photoUrl,
-    bool? isOpen,
-  }) async {
+      String token,
+      int courseId,
+      String name, {
+        String? photoUrl,
+        bool? isOpen,
+        String? description,
+      }) async {
     final body = <String, dynamic>{'name': name};
-    if (photoUrl != null) {
-      body['photoUrl'] = photoUrl;
-    }
-    if (isOpen != null) {
-      body['open'] = isOpen;
-    }
-
+    if (photoUrl != null) body['photoUrl'] = photoUrl;
+    if (isOpen != null) body['open'] = isOpen;
+    if (description != null) body['description'] = description;
     final response = await http.put(
       Uri.parse('$_apiBaseUrl/course/$courseId'),
       headers: {
@@ -342,43 +150,30 @@ class CourseService {
       Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {'Authorization': 'Bearer $token'},
     );
-    if (response.statusCode != 200) {
+    if (response.statusCode != 200 && response.statusCode != 201) {
       throw _handleErrorResponse(response, 'Не вдалося приєднатися до курсу');
     }
   }
 
   Future<List<CourseMember>> getCourseMembers(
-    String token,
-    int courseId,
-  ) async {
+      String token,
+      int courseId,
+      ) async {
     try {
       final response = await http.get(
         Uri.parse('$_apiBaseUrl/course/$courseId'),
         headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map &&
             decoded.containsKey('members') &&
             decoded['members'] is List) {
-          print(
-            "Fetched ${decoded['members'].length} members for course $courseId.",
-          );
           return (decoded['members'] as List)
               .map((m) => CourseMember.fromJson(m))
               .toList();
-        } else if (decoded is List) {
-          print(
-            "Fetched ${decoded.length} members for course $courseId (direct list).",
-          );
-          return decoded.map((m) => CourseMember.fromJson(m)).toList();
         } else {
-          print(
-            "Error: Invalid members list format for course $courseId: $decoded",
-          );
-          throw Exception(
-            'Неправильний формат відповіді від API: відсутнє поле "members" або воно не є списком.',
-          );
+          throw Exception('Неправильний формат відповіді для учасників.');
         }
       } else {
         throw _handleErrorResponse(
@@ -393,11 +188,11 @@ class CourseService {
   }
 
   Future<void> addMember(
-    String token,
-    int courseId,
-    String username,
-    CourseRole role,
-  ) async {
+      String token,
+      int courseId,
+      String username,
+      CourseRole role,
+      ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {
@@ -412,11 +207,11 @@ class CourseService {
   }
 
   Future<void> updateMemberRole(
-    String token,
-    int courseId,
-    String username,
-    CourseRole newRole,
-  ) async {
+      String token,
+      int courseId,
+      String username,
+      CourseRole newRole,
+      ) async {
     final response = await http.put(
       Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {
@@ -435,8 +230,12 @@ class CourseService {
 
   Future<void> deleteMember(String token, int courseId, String username) async {
     final response = await http.delete(
-      Uri.parse('$_apiBaseUrl/course/$courseId/members/$username'),
-      headers: {'Authorization': 'Bearer $token'},
+      Uri.parse('$_apiBaseUrl/course/$courseId/members'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'username': username}),
     );
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw _handleErrorResponse(response, 'Не вдалося видалити учасника');
@@ -444,37 +243,25 @@ class CourseService {
   }
 
   Future<List<CourseMaterial>> getCourseMaterials(
-    String token,
-    int courseId,
-  ) async {
+      String token,
+      int courseId,
+      ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map &&
           decoded.containsKey('materials') &&
           decoded['materials'] is List) {
-        print(
-          "Fetched ${decoded['materials'].length} materials for course $courseId.",
-        );
         return (decoded['materials'] as List)
             .map((m) => CourseMaterial.fromJson(m))
             .toList();
       } else if (decoded is List) {
-        print(
-          "Fetched ${decoded.length} materials for course $courseId (direct list).",
-        );
         return decoded.map((m) => CourseMaterial.fromJson(m)).toList();
       } else {
-        print(
-          "Error: Invalid materials list format for course $courseId: $decoded",
-        );
-        throw Exception(
-          'Неправильний формат відповіді від API: відсутнє поле "materials" або воно не є списком.',
-        );
+        throw Exception('Неправильний формат відповіді.');
       }
     } else {
       throw _handleErrorResponse(response, 'Не вдалося завантажити матеріали');
@@ -482,21 +269,20 @@ class CourseService {
   }
 
   Future<CourseMaterial> getMaterialDetails(
-    String token,
-    int courseId,
-    int materialId,
-  ) async {
+      String token,
+      int courseId,
+      int materialId,
+      ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {'Authorization': 'Bearer $token'},
     );
-    print('--- Raw Material Details Response ---');
-    print(response.body);
     if (response.statusCode == 200) {
       try {
-        return CourseMaterial.fromJson(jsonDecode(response.body));
+        return CourseMaterial.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)),
+        );
       } catch (e) {
-        print("Error parsing material details JSON: $e");
         throw Exception('Помилка обробки даних матеріалу.');
       }
     } else {
@@ -508,12 +294,12 @@ class CourseService {
   }
 
   Future<int> createMaterial(
-    String token,
-    int courseId,
-    String topic,
-    String textContent,
-    List<String> tags,
-  ) async {
+      String token,
+      int courseId,
+      String topic,
+      String textContent,
+      List<String> tags,
+      ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials'),
       headers: {
@@ -523,17 +309,14 @@ class CourseService {
       body: jsonEncode({
         'topic': topic,
         'textContent': textContent,
-        'tags': tags.map((name) => {'name': name}).toList(),
+        'tags': tags,
       }),
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final body = jsonDecode(response.body);
+      final body = jsonDecode(utf8.decode(response.bodyBytes));
       if (body is Map && body.containsKey('id') && body['id'] is int) {
         return body['id'];
       } else {
-        print(
-          "Error: Material creation response missing or invalid 'id': $body",
-        );
         throw Exception('API не повернуло ID для створеного матеріалу.');
       }
     } else {
@@ -542,24 +325,27 @@ class CourseService {
   }
 
   Future<void> patchMaterial(
-    String token,
-    int courseId,
-    int materialId,
-    String topic,
-    String textContent,
-    List<String> tags,
-  ) async {
+      String token,
+      int courseId,
+      int materialId,
+      String? topic,
+      String? textContent,
+      List<String>? tags,
+      ) async {
+    final body = <String, dynamic>{};
+    if (topic != null) body['topic'] = topic;
+    if (textContent != null) body['textContent'] = textContent;
+    if (tags != null) body['tags'] = tags;
+
+    if (body.isEmpty) return;
+
     final response = await http.patch(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({
-        'topic': topic,
-        'textContent': textContent,
-        'tags': tags.map((name) => {'name': name}).toList(),
-      }),
+      body: jsonEncode(body),
     );
     if (response.statusCode != 200) {
       throw _handleErrorResponse(
@@ -570,12 +356,12 @@ class CourseService {
   }
 
   Future<void> addMediaToMaterial(
-    String token,
-    int courseId,
-    int materialId,
-    String fileUrl,
-    String fileName,
-  ) async {
+      String token,
+      int courseId,
+      int materialId,
+      String fileUrl,
+      String fileName,
+      ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId/media'),
       headers: {
@@ -590,11 +376,11 @@ class CourseService {
   }
 
   Future<void> deleteMaterialFile(
-    String token,
-    int courseId,
-    int materialId,
-    int mediaId,
-  ) async {
+      String token,
+      int courseId,
+      int materialId,
+      int mediaId,
+      ) async {
     final response = await http.delete(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/materials/$materialId/media/$mediaId',
@@ -607,10 +393,10 @@ class CourseService {
   }
 
   Future<void> deleteMaterial(
-    String token,
-    int courseId,
-    int materialId,
-  ) async {
+      String token,
+      int courseId,
+      int materialId,
+      ) async {
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -626,29 +412,17 @@ class CourseService {
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
-      final decoded = jsonDecode(response.body);
-
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is Map &&
           decoded.containsKey('assignments') &&
           decoded['assignments'] is List) {
-        print(
-          "Fetched ${decoded['assignments'].length} assignments for course $courseId.",
-        );
         return (decoded['assignments'] as List)
             .map((m) => Assignment.fromJson(m))
             .toList();
       } else if (decoded is List) {
-        print(
-          "Fetched ${decoded.length} assignments for course $courseId (direct list).",
-        );
         return decoded.map((m) => Assignment.fromJson(m)).toList();
       } else {
-        print(
-          "Error: Invalid assignments list format for course $courseId: $decoded",
-        );
-        throw Exception(
-          'Неправильний формат відповіді від API: відсутнє поле "assignments" або воно не є списком.',
-        );
+        throw Exception('Неправильний формат відповіді.');
       }
     } else {
       throw _handleErrorResponse(response, 'Не вдалося завантажити завдання');
@@ -656,19 +430,18 @@ class CourseService {
   }
 
   Future<Assignment> getAssignmentDetails(
-    String token,
-    int courseId,
-    int assignmentId,
-  ) async {
+      String token,
+      int courseId,
+      int assignmentId,
+      ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
       try {
-        return Assignment.fromJson(jsonDecode(response.body));
+        return Assignment.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
       } catch (e) {
-        print("Error parsing assignment details JSON: $e");
         throw Exception('Помилка обробки даних завдання.');
       }
     } else {
@@ -695,6 +468,7 @@ class CourseService {
       'deadline': deadline?.toIso8601String(),
       'maxGrade': maxGrade,
     };
+    body.removeWhere((key, value) => value == null);
 
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments'),
@@ -705,13 +479,12 @@ class CourseService {
       body: jsonEncode(body),
     );
     if (response.statusCode == 200 || response.statusCode == 201) {
-      final body = jsonDecode(response.body);
-      if (body is Map && body.containsKey('id') && body['id'] is int) {
-        return body['id'];
+      final respBody = jsonDecode(utf8.decode(response.bodyBytes));
+      if (respBody is Map &&
+          respBody.containsKey('id') &&
+          respBody['id'] is int) {
+        return respBody['id'];
       } else {
-        print(
-          "Error: Assignment creation response missing or invalid 'id': $body",
-        );
         throw Exception('API не повернуло ID для створеного завдання.');
       }
     } else {
@@ -723,19 +496,21 @@ class CourseService {
       String token,
       int courseId,
       int assignmentId,
-      String title,
-      String description,
-      List<String> tags,
+      String? title,
+      String? description,
+      List<String>? tags,
       DateTime? deadline,
       int? maxGrade,
       ) async {
-    final patchBody = {
-      'title': title,
-      'description': description,
-      'tags': tags,
-      'deadline': deadline?.toIso8601String(),
-      'maxGrade': maxGrade,
-    };
+    final patchBody = <String, dynamic>{};
+    if (title != null) patchBody['title'] = title;
+    if (description != null) patchBody['description'] = description;
+    if (tags != null) patchBody['tags'] = tags;
+    if (deadline != null) patchBody['deadline'] = deadline.toIso8601String();
+    if (maxGrade != null) patchBody['maxGrade'] = maxGrade;
+
+    if (patchBody.isEmpty) return;
+
     final response = await http.patch(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
       headers: {
@@ -753,12 +528,12 @@ class CourseService {
   }
 
   Future<void> addMediaToAssignment(
-    String token,
-    int courseId,
-    int assignmentId,
-    String fileUrl,
-    String fileName,
-  ) async {
+      String token,
+      int courseId,
+      int assignmentId,
+      String fileUrl,
+      String fileName,
+      ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media',
@@ -778,11 +553,11 @@ class CourseService {
   }
 
   Future<void> deleteAssignmentFile(
-    String token,
-    int courseId,
-    int assignmentId,
-    int mediaId,
-  ) async {
+      String token,
+      int courseId,
+      int assignmentId,
+      int mediaId,
+      ) async {
     final response = await http.delete(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media/$mediaId',
@@ -795,10 +570,10 @@ class CourseService {
   }
 
   Future<void> deleteAssignment(
-    String token,
-    int courseId,
-    int assignmentId,
-  ) async {
+      String token,
+      int courseId,
+      int assignmentId,
+      ) async {
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -807,12 +582,214 @@ class CourseService {
       throw _handleErrorResponse(response, 'Не вдалося видалити завдання');
     }
   }
+
+  Future<int> submitAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      List<Map<String, String>> mediaList,
+      ) async {
+    final uri = Uri.parse(
+      '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses',
+    );
+    final response = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'media': mediaList}),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      try {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map && decoded.containsKey('id') && decoded['id'] is num) {
+          return (decoded['id'] as num).toInt();
+        } else {
+          print("Warning: Assignment response created (status ${response.statusCode}) but no ID found in response body: ${response.body}");
+          return 0;
+        }
+      } catch (e) {
+        throw Exception('Failed to parse response ID after submitting: $e');
+      }
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося надіслати відповідь');
+    }
+  }
+
+  Future<List<AssignmentResponse>> getAssignmentResponses(
+      String token,
+      int courseId,
+      int assignmentId,
+      ) async {
+    final response = await http.get(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is List) {
+        return decoded.map((r) => AssignmentResponse.fromJson(r)).toList();
+      } else if (decoded is Map &&
+          decoded.containsKey('responses') &&
+          decoded['responses'] is List) {
+        return (decoded['responses'] as List)
+            .map((r) => AssignmentResponse.fromJson(r))
+            .toList();
+      } else {
+        throw Exception('Неправильний формат списку відповідей від API.');
+      }
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити відповіді на завдання',
+      );
+    }
+  }
+
+  Future<AssignmentResponse> getAssignmentResponseDetails(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      ) async {
+    final response = await http.get(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      try {
+        return AssignmentResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)),
+        );
+      } catch (e) {
+        throw Exception('Помилка обробки даних відповіді.');
+      }
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити деталі відповіді',
+      );
+    }
+  }
+
+  Future<void> deleteAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      ) async {
+    final response = await http.delete(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося видалити відповідь');
+    }
+  }
+
+  Future<void> returnAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      String? comment,
+      ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/return',
+      ),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'comment': comment ?? ''}),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося повернути відповідь на доопрацювання',
+      );
+    }
+  }
+
+  Future<void> cancelReturnAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/return-cancel',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося скасувати повернення відповіді',
+      );
+    }
+  }
+
+  Future<void> gradeAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      int grade,
+      String? comment,
+      ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/grade',
+      ),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'grade': grade, 'comment': comment ?? ''}),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(response, 'Не вдалося оцінити відповідь');
+    }
+  }
+
+  Future<void> cancelGradeAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      int responseId,
+      ) async {
+    final response = await http.post(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/grade-cancel',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(response, 'Не вдалося скасувати оцінку');
+    }
+  }
 }
 
 class CoursesScreen extends StatefulWidget {
   final String authToken;
+  final String currentUsername;
 
-  const CoursesScreen({super.key, required this.authToken});
+  const CoursesScreen({
+    super.key,
+    required this.authToken,
+    required this.currentUsername,
+  });
 
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
@@ -832,7 +809,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
     if (mounted) {
       setState(() {
         _coursesFuture = _courseService.getCourses(widget.authToken).catchError(
-          (e) {
+              (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -841,58 +818,16 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 ),
               );
             }
-
-            throw e;
+            return <Course>[];
           },
         );
       });
     }
   }
 
-  Future<String?> getDirectImageUrl(String publicUrl) async {
-    try {
-      final uri = Uri.parse(publicUrl);
-      final code = uri.queryParameters['code'];
-      if (code == null) {
-        print("Warning: Could not find 'code' in image URL: $publicUrl");
-        return null;
-      }
-
-      String apiHost = (uri.host == 'e.pcloud.link')
-          ? 'eapi.pcloud.com'
-          : 'api.pcloud.com';
-      final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
-      final apiResponse = await http.get(apiUrl);
-
-      if (apiResponse.statusCode == 200) {
-        final jsonResponse = jsonDecode(apiResponse.body);
-        if (jsonResponse['result'] == 0) {
-          final path = jsonResponse['path'] as String?;
-          final hosts = (jsonResponse['hosts'] as List?) ?? [];
-          if (hosts.isNotEmpty && path != null) {
-            return 'https://${hosts.first}$path';
-          }
-        } else {
-          print(
-            "pCloud API error for image code $code: ${jsonResponse['error']}",
-          );
-        }
-      } else {
-        print(
-          "Error fetching direct image link from pCloud API: ${apiResponse.statusCode}",
-        );
-      }
-    } catch (e) {
-      print("Error processing image URL $publicUrl: $e");
-    }
-    return null;
-  }
-
   Future<void> _showJoinCourseDialog() async {
     final courseIdController = TextEditingController();
-
     final currentContext = context;
-
     await showDialog(
       context: currentContext,
       builder: (dialogContext) {
@@ -920,62 +855,63 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   onPressed: isJoining
                       ? null
                       : () async {
-                          final idText = courseIdController.text.trim();
-                          final id = int.tryParse(idText);
-                          if (id != null) {
-                            setDialogState(() => isJoining = true);
-                            final scaffoldMessenger = ScaffoldMessenger.of(
-                              currentContext,
-                            );
-                            try {
-                              await _courseService.joinCourse(
-                                widget.authToken,
-                                id,
-                              );
-                              if (mounted) {
-                                Navigator.pop(dialogContext);
-                                _loadCourses();
-                                scaffoldMessenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Ви успішно приєднались!'),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Помилка приєднання: ${e.toString().replaceFirst("Exception: ", "")}',
-                                    ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            } finally {
-                              if (mounted) {
-                                setDialogState(() => isJoining = false);
-                              }
-                            }
-                          } else {
-                            if (mounted)
-                              ScaffoldMessenger.of(currentContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Введіть коректний ID курсу.'),
-                                  backgroundColor: Colors.orange,
-                                ),
-                              );
-                          }
-                        },
-                  child: isJoining
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                    final idText = courseIdController.text.trim();
+                    final id = int.tryParse(idText);
+                    if (id != null) {
+                      setDialogState(() => isJoining = true);
+                      final scaffoldMessenger = ScaffoldMessenger.of(
+                        currentContext,
+                      );
+                      try {
+                        await _courseService.joinCourse(
+                          widget.authToken,
+                          id,
+                        );
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          _loadCourses();
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Ви успішно приєднались!'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Помилка приєднання: ${e.toString().replaceFirst("Exception: ", "")}',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setDialogState(() => isJoining = false);
+                        }
+                      }
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(currentContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Введіть коректний ID курсу.'),
+                            backgroundColor: Colors.orange,
                           ),
-                        )
+                        );
+                      }
+                    }
+                  },
+                  child: isJoining
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                       : const Text('Приєднатись'),
                 ),
               ],
@@ -1004,7 +940,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   label: const Text('Приєднатись'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: primaryColor,
-                    side: BorderSide(color: primaryColor),
+                    side: const BorderSide(color: primaryColor),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1017,9 +953,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                             CreateCourseScreen(authToken: widget.authToken),
                       ),
                     );
-                    if (result == true) {
-                      _loadCourses();
-                    }
+                    if (result == true) _loadCourses();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
@@ -1036,37 +970,40 @@ class _CoursesScreenState extends State<CoursesScreen> {
               child: FutureBuilder<List<Course>>(
                 future: _coursesFuture,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting)
+                  if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
-                  if (snapshot.hasError)
+                  }
+                  if (snapshot.hasError) {
                     return Center(
                       child: Text(
                         'Помилка завантаження: ${snapshot.error.toString().replaceFirst("Exception: ", "")}',
                       ),
                     );
-                  if (!snapshot.hasData || snapshot.data!.isEmpty)
+                  }
+                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
                     return const Center(
                       child: Text('Ви не є учасником жодного курсу.'),
                     );
-
+                  }
                   final courses = snapshot.data!;
                   return RefreshIndicator(
                     onRefresh: () async => _loadCourses(),
                     child: GridView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
                       gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 300,
-                            childAspectRatio: 3 / 2.3,
-                            crossAxisSpacing: 20,
-                            mainAxisSpacing: 20,
-                          ),
+                      const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 300,
+                        childAspectRatio: 3 / 2.5,
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                      ),
                       itemCount: courses.length,
                       itemBuilder: (context, index) {
                         return _CourseCard(
                           course: courses[index],
                           authToken: widget.authToken,
                           onCourseAction: _loadCourses,
+                          currentUsername: widget.currentUsername,
                         );
                       },
                     ),
@@ -1082,16 +1019,16 @@ class _CoursesScreenState extends State<CoursesScreen> {
 }
 
 class _CourseCard extends StatefulWidget {
-  // Змінено на StatefulWidget
   final Course course;
   final String authToken;
   final VoidCallback onCourseAction;
+  final String currentUsername;
 
   const _CourseCard({
     required this.course,
     required this.authToken,
     required this.onCourseAction,
-    super.key,
+    required this.currentUsername,
   });
 
   @override
@@ -1126,18 +1063,16 @@ class _CourseCardState extends State<_CourseCard> {
           });
         }
       } catch (e) {
-        print("Error resolving photo URL for course ${widget.course.id}: $e");
-        if (mounted) {
-          setState(() => _isLoadingPhoto = false);
-        }
+        if (mounted) setState(() => _isLoadingPhoto = false);
       }
     }
   }
 
   Future<void> _fetchMemberCount() async {
     if (widget.course.memberCount > 0) {
-      if (mounted)
+      if (mounted) {
         setState(() => _actualMemberCount = widget.course.memberCount);
+      }
       return;
     }
     if (!mounted) return;
@@ -1154,7 +1089,6 @@ class _CourseCardState extends State<_CourseCard> {
         });
       }
     } catch (e) {
-      print("Error fetching member count for course ${widget.course.id}: $e");
       if (mounted) {
         setState(() {
           _isLoadingCount = false;
@@ -1177,12 +1111,11 @@ class _CourseCardState extends State<_CourseCard> {
             builder: (context) => CourseDetailScreen(
               course: widget.course,
               authToken: widget.authToken,
+              currentUsername: widget.currentUsername,
             ),
           ),
         );
-
         if (result == true && context.mounted) {
-          print("Course action detected, reloading courses...");
           widget.onCourseAction();
           _fetchMemberCount();
         }
@@ -1198,7 +1131,7 @@ class _CourseCardState extends State<_CourseCard> {
               color: Colors.grey.withOpacity(0.3),
               spreadRadius: 1,
               blurRadius: 5,
-              offset: Offset(0, 3),
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -1224,43 +1157,36 @@ class _CourseCardState extends State<_CourseCard> {
                   radius: 25,
                   backgroundColor: Colors.white.withOpacity(0.8),
                   backgroundImage:
-                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
+                  _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
                       ? NetworkImage(_directPhotoUrl!)
                       : null,
                   onBackgroundImageError:
-                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
+                  _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
                       ? (_, __) {
-                          print(
-                            "Error loading direct image in Card: $_directPhotoUrl",
-                          );
-                          if (mounted) {
-                            // Скидаємо URL при помилці, щоб показалась іконка
-                            // Перевіряємо ще раз, чи URL справді той самий, що викликав помилку
-                            if (_directPhotoUrl == _directPhotoUrl) {
-                              setState(() {
-                                _directPhotoUrl = null;
-                                _isLoadingPhoto = false;
-                              });
-                            }
-                          }
-                        }
+                    if (mounted) {
+                      setState(() {
+                        _directPhotoUrl = null;
+                        _isLoadingPhoto = false;
+                      });
+                    }
+                  }
                       : null,
                   child: _isLoadingPhoto
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cardColor,
-                          ),
-                        )
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: cardColor,
+                    ),
+                  )
                       : (_directPhotoUrl == null || _directPhotoUrl!.isEmpty
-                            ? Icon(
-                                Icons.school_outlined,
-                                color: cardColor.withOpacity(0.9),
-                                size: 30,
-                              )
-                            : null),
+                      ? Icon(
+                    Icons.school_outlined,
+                    color: cardColor.withOpacity(0.9),
+                    size: 30,
+                  )
+                      : null),
                 ),
               ],
             ),
@@ -1274,18 +1200,18 @@ class _CourseCardState extends State<_CourseCard> {
                 ),
                 const SizedBox(width: 4),
                 _isLoadingCount
-                    ? SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1.5,
-                          color: Colors.white70,
-                        ),
-                      )
+                    ? const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    color: Colors.white70,
+                  ),
+                )
                     : Text(
-                        '${_actualMemberCount ?? 0} учасників',
-                        style: const TextStyle(color: textColor, fontSize: 12),
-                      ),
+                  '${_actualMemberCount ?? 0} учасників',
+                  style: const TextStyle(color: textColor, fontSize: 12),
+                ),
               ],
             ),
             const SizedBox(height: 4),
@@ -1305,6 +1231,21 @@ class _CourseCardState extends State<_CourseCard> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  Icons.tag_outlined,
+                  color: textColor.withOpacity(0.8),
+                  size: 16,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'ID: ${widget.course.id}',
+                  style: const TextStyle(color: textColor, fontSize: 12),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -1315,11 +1256,13 @@ class _CourseCardState extends State<_CourseCard> {
 class CourseDetailScreen extends StatefulWidget {
   final Course course;
   final String authToken;
+  final String currentUsername;
 
   const CourseDetailScreen({
     super.key,
     required this.course,
     required this.authToken,
+    required this.currentUsername,
   });
 
   @override
@@ -1333,20 +1276,37 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   bool _isLoadingRole = true;
   late String _courseName;
   String? _coursePhotoUrl;
-  late bool _courseIsOpen;
-  File? _newCourseImageFile;
+  String? _courseDescription;
   final ImagePicker _picker = ImagePicker();
-  final String _currentUsername = "test_user";
+  String? _directPhotoUrl;
 
   @override
   void initState() {
     super.initState();
     _courseName = widget.course.name;
     _coursePhotoUrl = widget.course.photoUrl;
-    _courseIsOpen = widget.course.isOpen;
+    _courseDescription = widget.course.description;
     initializeDateFormatting('uk_UA', null);
     _tabController = TabController(length: 6, vsync: this);
     _determineCurrentUserRole();
+    _resolvePhotoUrl();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _resolvePhotoUrl() async {
+    if (_coursePhotoUrl != null && _coursePhotoUrl!.isNotEmpty) {
+      final directUrl = await CourseService().getDirectImageUrl(
+        _coursePhotoUrl!,
+      );
+      if (mounted) setState(() => _directPhotoUrl = directUrl);
+    } else {
+      if (mounted) setState(() => _directPhotoUrl = null);
+    }
   }
 
   Future<void> _determineCurrentUserRole() async {
@@ -1357,12 +1317,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         widget.authToken,
         widget.course.id,
       );
-
       final currentUserMember = members.firstWhere(
-        (m) => m.username == _currentUsername,
-
-        orElse: () =>
-            CourseMember(username: _currentUsername, role: CourseRole.VIEWER),
+            (m) => m.username == widget.currentUsername,
+        orElse: () => CourseMember(
+          username: widget.currentUsername,
+          role: CourseRole.VIEWER,
+        ),
       );
       if (mounted) {
         setState(() {
@@ -1371,10 +1331,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         });
       }
     } catch (e) {
-      print("Error determining user role: $e");
       if (mounted) {
         setState(() => _isLoadingRole = false);
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1389,7 +1347,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Future<void> _editCourse() async {
     final newNameController = TextEditingController(text: _courseName);
-    String? currentEditPhotoUrl = _coursePhotoUrl;
+    final newDescriptionController = TextEditingController(
+      text: _courseDescription ?? '',
+    );
+    String? currentEditPhotoUrl = _directPhotoUrl;
     File? newSelectedImageFile;
 
     final updatedData = await showDialog<Map<String, dynamic>>(
@@ -1399,7 +1360,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: Text('Редагувати курс'),
+              title: const Text('Редагувати курс'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1412,20 +1373,23 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           backgroundColor: Colors.grey.shade300,
                           backgroundImage: newSelectedImageFile != null
                               ? FileImage(newSelectedImageFile!)
+                          as ImageProvider?
                               : (currentEditPhotoUrl != null &&
-                                            currentEditPhotoUrl!.isNotEmpty
-                                        ? NetworkImage(currentEditPhotoUrl!)
-                                        : null)
-                                    as ImageProvider?,
+                              currentEditPhotoUrl!.isNotEmpty
+                              ? NetworkImage(currentEditPhotoUrl!)
+                              : null),
+                          onBackgroundImageError: (_, __) {
+                            setDialogState(() => currentEditPhotoUrl = null);
+                          },
                           child:
-                              newSelectedImageFile == null &&
-                                  (currentEditPhotoUrl == null ||
-                                      currentEditPhotoUrl!.isEmpty)
+                          newSelectedImageFile == null &&
+                              (currentEditPhotoUrl == null ||
+                                  currentEditPhotoUrl!.isEmpty)
                               ? Icon(
-                                  Icons.school_outlined,
-                                  size: 50,
-                                  color: Colors.grey.shade600,
-                                )
+                            Icons.school_outlined,
+                            size: 50,
+                            color: Colors.grey.shade600,
+                          )
                               : null,
                         ),
                         IconButton(
@@ -1444,34 +1408,35 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           onPressed: isSaving
                               ? null
                               : () async {
-                                  try {
-                                    final XFile? pickedFile = await _picker
-                                        .pickImage(
-                                          source: ImageSource.gallery,
-                                          imageQuality: 85,
-                                          maxWidth: 1024,
-                                          maxHeight: 1024,
-                                        );
-                                    if (pickedFile != null) {
-                                      setDialogState(() {
-                                        newSelectedImageFile = File(
-                                          pickedFile.path,
-                                        );
-                                        currentEditPhotoUrl = null;
-                                      });
-                                    }
-                                  } catch (e) {
-                                    if (mounted)
-                                      ScaffoldMessenger.of(
-                                        dialogContext,
-                                      ).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Помилка вибору: $e'),
-                                          backgroundColor: Colors.red,
-                                        ),
-                                      );
-                                  }
-                                },
+                            try {
+                              final XFile? pickedFile = await _picker
+                                  .pickImage(
+                                source: ImageSource.gallery,
+                                imageQuality: 85,
+                                maxWidth: 1024,
+                                maxHeight: 1024,
+                              );
+                              if (pickedFile != null) {
+                                setDialogState(() {
+                                  newSelectedImageFile = File(
+                                    pickedFile.path,
+                                  );
+                                  currentEditPhotoUrl = null;
+                                });
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(
+                                  dialogContext,
+                                ).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Помилка вибору: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            }
+                          },
                         ),
                         if (newSelectedImageFile != null ||
                             (currentEditPhotoUrl != null &&
@@ -1483,7 +1448,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                               icon: CircleAvatar(
                                 radius: 15,
                                 backgroundColor: Colors.red.withOpacity(0.8),
-                                child: Icon(
+                                child: const Icon(
                                   Icons.close,
                                   color: Colors.white,
                                   size: 15,
@@ -1492,21 +1457,30 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                               tooltip: 'Видалити фото',
                               onPressed: isSaving
                                   ? null
-                                  : () {
-                                      setDialogState(() {
-                                        newSelectedImageFile = null;
-                                        currentEditPhotoUrl = null;
-                                      });
-                                    },
+                                  : () => setDialogState(() {
+                                newSelectedImageFile = null;
+                                currentEditPhotoUrl = null;
+                              }),
                             ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    TextField(
+                    TextFormField(
                       controller: newNameController,
-                      decoration: InputDecoration(labelText: 'Назва курсу'),
+                      decoration: const InputDecoration(
+                        labelText: 'Назва курсу',
+                      ),
                       maxLength: 100,
+                      enabled: !isSaving,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: newDescriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'Опис (необов\'язково)',
+                      ),
+                      maxLines: 3,
                       enabled: !isSaving,
                     ),
                   ],
@@ -1517,41 +1491,43 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   onPressed: isSaving
                       ? null
                       : () => Navigator.pop(dialogContext),
-                  child: Text('Скасувати'),
+                  child: const Text('Скасувати'),
                 ),
                 ElevatedButton(
                   onPressed: isSaving
                       ? null
                       : () {
-                          if (newNameController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Назва курсу не може бути порожньою.',
-                                ),
-                                backgroundColor: Colors.orange,
-                              ),
-                            );
-                            return;
-                          }
-                          Navigator.pop(dialogContext, {
-                            'name': newNameController.text.trim(),
-                            'newImageFile': newSelectedImageFile,
-                            'removeCurrentImage':
-                                currentEditPhotoUrl == null &&
-                                widget.course.photoUrl != null,
-                          });
-                        },
-                  child: isSaving
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                    if (newNameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Назва курсу не може бути порожньою.',
                           ),
-                        )
-                      : Text('Зберегти'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.pop(dialogContext, {
+                      'name': newNameController.text.trim(),
+                      'description': newDescriptionController.text.trim(),
+                      'newImageFile': newSelectedImageFile,
+                      'removeCurrentImage':
+                      newSelectedImageFile == null &&
+                          currentEditPhotoUrl == null &&
+                          _coursePhotoUrl != null,
+                    });
+                  },
+                  child: isSaving
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Text('Зберегти'),
                 ),
               ],
             );
@@ -1562,29 +1538,28 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
     if (updatedData != null && mounted) {
       final newName = updatedData['name'] as String?;
+      final newDescription = updatedData['description'] as String?;
       final File? newlyPickedImageFile = updatedData['newImageFile'] as File?;
       final bool removeCurrentImage =
           updatedData['removeCurrentImage'] as bool? ?? false;
 
       if (newName != null && newName.isNotEmpty) {
-        bool nameChanged = newName != _courseName;
-        bool imageChanged = newlyPickedImageFile != null || removeCurrentImage;
-        bool hasChanges = nameChanged || imageChanged;
+        bool hasChanges =
+            (newName != _courseName) ||
+                (newDescription != (_courseDescription ?? '')) ||
+                (newlyPickedImageFile != null) ||
+                removeCurrentImage;
 
-        if (!hasChanges) {
-          print("No changes detected in course edit.");
-          return;
-        }
+        if (!hasChanges) return;
 
         final scaffoldMessenger = ScaffoldMessenger.of(context);
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (_) => Center(child: CircularProgressIndicator()),
+          builder: (_) => const Center(child: CircularProgressIndicator()),
         );
 
         String? finalPhotoUrl = _coursePhotoUrl;
-
         try {
           if (newlyPickedImageFile != null) {
             scaffoldMessenger.hideCurrentSnackBar();
@@ -1594,7 +1569,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 duration: Duration(minutes: 1),
               ),
             );
-
             final pCloudService = PCloudService();
             final platformFile = PlatformFile(
               name: newlyPickedImageFile.path.split('/').last,
@@ -1622,21 +1596,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             widget.course.id,
             newName,
             photoUrl: finalPhotoUrl,
+            description: newDescription,
           );
 
           Navigator.pop(context);
           if (mounted) {
             scaffoldMessenger.showSnackBar(
-              SnackBar(content: Text('Курс оновлено!')),
+              const SnackBar(content: Text('Курс оновлено!')),
             );
             setState(() {
               _courseName = newName;
               _coursePhotoUrl = finalPhotoUrl;
+              _courseDescription = newDescription;
+              _resolvePhotoUrl();
             });
+            Navigator.pop(context, true);
           }
         } catch (e) {
           Navigator.pop(context);
-          if (mounted)
+          if (mounted) {
             scaffoldMessenger.showSnackBar(
               SnackBar(
                 content: Text(
@@ -1645,6 +1623,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 backgroundColor: Colors.red,
               ),
             );
+          }
         }
       }
     }
@@ -1655,20 +1634,19 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: Text('Підтвердити видалення курсу'),
+            title: const Text('Підтвердити видалення курсу'),
             content: Text(
-              'Ви ВПЕВНЕНІ, що хочете видалити курс "$_courseName"?\n\n'
-              'ВСІ матеріали та дані учасників курсу будуть втрачені НАЗАВЖДИ!',
-              style: TextStyle(height: 1.5),
+              'Ви ВПЕВНЕНІ, що хочете видалити курс "$_courseName"?\n\nВСІ матеріали та дані учасників курсу будуть втрачені НАЗАВЖДИ!',
+              style: const TextStyle(height: 1.5),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text('Скасувати'),
+                child: const Text('Скасувати'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: Text(
+                child: const Text(
                   'ВИДАЛИТИ',
                   style: TextStyle(
                     color: Colors.red,
@@ -1679,29 +1657,30 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             ],
           ),
         ) ??
-        false;
+            false;
 
     if (confirm && mounted) {
       final scaffoldMessenger = ScaffoldMessenger.of(context);
-
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (_) => Center(child: CircularProgressIndicator()),
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
       try {
         await CourseService().deleteCourse(widget.authToken, widget.course.id);
-        Navigator.pop(context);
+        Navigator.pop(context); // close progress
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('Курс "$_courseName" видалено.')),
           );
-
-          Navigator.pop(context, true);
+          Navigator.pop(
+            context,
+            true,
+          ); // back to courses list with refresh flag
         }
       } catch (e) {
-        Navigator.pop(context);
-        if (mounted)
+        Navigator.pop(context); // close progress
+        if (mounted) {
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -1710,6 +1689,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               backgroundColor: Colors.red,
             ),
           );
+        }
       }
     }
   }
@@ -1725,13 +1705,13 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         actions: [
           if (!_isLoadingRole && _currentUserRole == CourseRole.OWNER)
             IconButton(
-              icon: Icon(Icons.edit_outlined),
+              icon: const Icon(Icons.edit_outlined),
               tooltip: 'Редагувати курс',
               onPressed: _editCourse,
             ),
           if (!_isLoadingRole && _currentUserRole == CourseRole.OWNER)
             IconButton(
-              icon: Icon(Icons.delete_forever_outlined),
+              icon: const Icon(Icons.delete_forever_outlined),
               tooltip: 'Видалити курс',
               onPressed: _deleteCourse,
             ),
@@ -1742,7 +1722,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: Colors.white,
-
           tabs: const [
             Tab(icon: Icon(Icons.dynamic_feed_outlined), text: 'Стрічка'),
             Tab(icon: Icon(Icons.assignment_outlined), text: 'Завдання'),
@@ -1756,28 +1735,30 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       body: _isLoadingRole
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
-              controller: _tabController,
-              children: [
-                const Center(child: Text("Вкладка 'Стрічка' в розробці.")),
-                AssignmentsTabView(
-                  authToken: widget.authToken,
-                  courseId: widget.course.id,
-                  currentUserRole: _currentUserRole,
-                ),
-                MaterialsTabView(
-                  authToken: widget.authToken,
-                  courseId: widget.course.id,
-                  currentUserRole: _currentUserRole,
-                ),
-                MembersTabView(
-                  authToken: widget.authToken,
-                  courseId: widget.course.id,
-                  currentUserRole: _currentUserRole,
-                ),
-                const Center(child: Text("Вкладка 'Чати' в розробці.")),
-                const Center(child: Text("Вкладка 'Конференції' в розробці.")),
-              ],
-            ),
+        controller: _tabController,
+        children: [
+          const Center(child: Text("Вкладка 'Стрічка' в розробці.")),
+          AssignmentsTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            currentUserRole: _currentUserRole,
+            currentUsername: widget.currentUsername,
+          ),
+          MaterialsTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            currentUserRole: _currentUserRole,
+          ),
+          MembersTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            currentUserRole: _currentUserRole,
+            currentUsername: widget.currentUsername,
+          ),
+          const Center(child: Text("Вкладка 'Чати' в розробці.")),
+          const Center(child: Text("Вкладка 'Конференції' в розробці.")),
+        ],
+      ),
     );
   }
 }
@@ -1786,12 +1767,14 @@ class MembersTabView extends StatefulWidget {
   final String authToken;
   final int courseId;
   final CourseRole currentUserRole;
+  final String currentUsername;
 
   const MembersTabView({
     super.key,
     required this.authToken,
     required this.courseId,
     required this.currentUserRole,
+    required this.currentUsername,
   });
 
   @override
@@ -1801,8 +1784,6 @@ class MembersTabView extends StatefulWidget {
 class _MembersTabViewState extends State<MembersTabView> {
   final CourseService _courseService = CourseService();
   late Future<List<CourseMember>> _membersFuture;
-
-  final String _currentUsername = "test_user";
 
   @override
   void initState() {
@@ -1816,17 +1797,16 @@ class _MembersTabViewState extends State<MembersTabView> {
         _membersFuture = _courseService
             .getCourseMembers(widget.authToken, widget.courseId)
             .catchError((e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Помилка завантаження учасників: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-
-              throw e;
-            });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Помилка завантаження учасників: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return <CourseMember>[];
+        });
       });
     }
   }
@@ -1855,28 +1835,32 @@ class _MembersTabViewState extends State<MembersTabView> {
                       decoration: const InputDecoration(labelText: 'Username'),
                       enabled: !isAdding,
                       validator: (value) =>
-                          value == null || value.trim().isEmpty
+                      value == null || value.trim().isEmpty
                           ? 'Введіть username'
                           : null,
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     DropdownButtonFormField<CourseRole>(
                       value: selectedRole,
                       items: CourseRole.values
-                          .where((role) => role != CourseRole.OWNER)
+                          .where(
+                            (role) => role != CourseRole.OWNER,
+                      )
                           .map(
                             (role) => DropdownMenuItem(
-                              value: role,
-                              child: Text(role.name),
-                            ),
-                          )
+                          value: role,
+                          child: Text(role.name),
+                        ),
+                      )
                           .toList(),
                       onChanged: isAdding
                           ? null
                           : (value) {
-                              if (value != null) selectedRole = value;
-                            },
-                      decoration: InputDecoration(labelText: 'Роль'),
+                        if (value != null) {
+                          selectedRole = value;
+                        }
+                      },
+                      decoration: const InputDecoration(labelText: 'Роль'),
                     ),
                   ],
                 ),
@@ -1892,54 +1876,55 @@ class _MembersTabViewState extends State<MembersTabView> {
                   onPressed: isAdding
                       ? null
                       : () async {
-                          if (formKey.currentState!.validate()) {
-                            final username = usernameController.text.trim();
-                            setDialogState(() => isAdding = true);
-                            final scaffoldMessenger = ScaffoldMessenger.of(
-                              currentContext,
-                            );
-                            try {
-                              await _courseService.addMember(
-                                widget.authToken,
-                                widget.courseId,
-                                username,
-                                selectedRole,
-                              );
-                              if (mounted) {
-                                Navigator.pop(dialogContext);
-                                _loadMembers();
-                                scaffoldMessenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Учасника додано!'),
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              if (mounted)
-                                scaffoldMessenger.showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Помилка додавання: ${e.toString().replaceFirst("Exception: ", "")}',
-                                    ),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                            } finally {
-                              if (mounted) {
-                                setDialogState(() => isAdding = false);
-                              }
-                            }
-                          }
-                        },
+                    if (formKey.currentState!.validate()) {
+                      final username = usernameController.text.trim();
+                      setDialogState(() => isAdding = true);
+                      final scaffoldMessenger = ScaffoldMessenger.of(
+                        currentContext,
+                      );
+                      try {
+                        await _courseService.addMember(
+                          widget.authToken,
+                          widget.courseId,
+                          username,
+                          selectedRole,
+                        );
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          _loadMembers();
+                          scaffoldMessenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Учасника додано!'),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          scaffoldMessenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Помилка додавання: ${e.toString().replaceFirst("Exception: ", "")}',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (mounted) {
+                          setDialogState(() => isAdding = false);
+                        }
+                      }
+                    }
+                  },
                   child: isAdding
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                       : const Text('Додати'),
                 ),
               ],
@@ -1965,78 +1950,80 @@ class _MembersTabViewState extends State<MembersTabView> {
               content: DropdownButtonFormField<CourseRole>(
                 value: selectedRole,
                 items: CourseRole.values
-                    .where((role) => role != CourseRole.OWNER)
+                    .where(
+                      (role) => role != CourseRole.OWNER,
+                )
                     .map(
                       (role) =>
-                          DropdownMenuItem(value: role, child: Text(role.name)),
-                    )
+                      DropdownMenuItem(value: role, child: Text(role.name)),
+                )
                     .toList(),
                 onChanged: isSaving
                     ? null
                     : (value) {
-                        if (value != null) {
-                          setDialogState(() => selectedRole = value);
-                        }
-                      },
-                decoration: InputDecoration(labelText: 'Нова роль'),
+                  if (value != null) {
+                    setDialogState(() => selectedRole = value);
+                  }
+                },
+                decoration: const InputDecoration(labelText: 'Нова роль'),
               ),
               actions: [
                 TextButton(
                   onPressed: isSaving
                       ? null
                       : () => Navigator.pop(dialogContext),
-                  child: Text('Скасувати'),
+                  child: const Text('Скасувати'),
                 ),
                 ElevatedButton(
                   onPressed: (selectedRole == member.role || isSaving)
                       ? null
                       : () async {
-                          setDialogState(() => isSaving = true);
-                          final scaffoldMessenger = ScaffoldMessenger.of(
-                            currentContext,
-                          );
-                          try {
-                            await _courseService.updateMemberRole(
-                              widget.authToken,
-                              widget.courseId,
-                              member.username,
-                              selectedRole,
-                            );
-                            if (mounted) {
-                              Navigator.pop(dialogContext, selectedRole);
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Роль для ${member.username} оновлено!',
-                                  ),
-                                ),
-                              );
-                              _loadMembers();
-                            }
-                          } catch (e) {
-                            if (mounted)
-                              scaffoldMessenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Помилка зміни ролі: ${e.toString().replaceFirst("Exception: ", "")}',
-                                  ),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-
-                            if (mounted) setDialogState(() => isSaving = false);
-                          }
-                        },
-                  child: isSaving
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                    setDialogState(() => isSaving = true);
+                    final scaffoldMessenger = ScaffoldMessenger.of(
+                      currentContext,
+                    );
+                    try {
+                      await _courseService.updateMemberRole(
+                        widget.authToken,
+                        widget.courseId,
+                        member.username,
+                        selectedRole,
+                      );
+                      if (mounted) {
+                        Navigator.pop(dialogContext, selectedRole);
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Роль для ${member.username} оновлено!',
+                            ),
                           ),
-                        )
-                      : Text('Зберегти'),
+                        );
+                        _loadMembers();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Помилка зміни ролі: ${e.toString().replaceFirst("Exception: ", "")}',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      if (mounted) setDialogState(() => isSaving = false);
+                    }
+                  },
+                  child: isSaving
+                      ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Text('Зберегти'),
                 ),
               ],
             );
@@ -2052,31 +2039,33 @@ class _MembersTabViewState extends State<MembersTabView> {
         await showDialog<bool>(
           context: currentContext,
           builder: (context) => AlertDialog(
-            title: Text('Видалити учасника'),
+            title: const Text('Видалити учасника'),
             content: Text(
               'Ви впевнені, що хочете видалити ${member.username} з курсу?',
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: Text('Скасувати'),
+                child: const Text('Скасувати'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: Text('Видалити', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Видалити',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           ),
         ) ??
-        false;
+            false;
 
     if (confirm && mounted) {
       final scaffoldMessenger = ScaffoldMessenger.of(currentContext);
-
       showDialog(
         context: currentContext,
         barrierDismissible: false,
-        builder: (_) => Center(child: CircularProgressIndicator()),
+        builder: (_) => const Center(child: CircularProgressIndicator()),
       );
       try {
         await _courseService.deleteMember(
@@ -2109,11 +2098,10 @@ class _MembersTabViewState extends State<MembersTabView> {
   @override
   Widget build(BuildContext context) {
     final bool canManageMembers = widget.currentUserRole == CourseRole.OWNER;
-
     final bool canAddMembers =
         widget.currentUserRole == CourseRole.OWNER ||
-        widget.currentUserRole == CourseRole.PROFESSOR ||
-        widget.currentUserRole == CourseRole.LEADER;
+            widget.currentUserRole == CourseRole.PROFESSOR ||
+            widget.currentUserRole == CourseRole.LEADER;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -2123,7 +2111,6 @@ class _MembersTabViewState extends State<MembersTabView> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting)
               return const Center(child: CircularProgressIndicator());
-
             if (snapshot.hasError)
               return Center(
                 child: Padding(
@@ -2131,7 +2118,7 @@ class _MembersTabViewState extends State<MembersTabView> {
                   child: Text(
                     "Помилка завантаження учасників:\n${snapshot.error.toString().replaceFirst("Exception: ", "")}",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.red),
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ),
               );
@@ -2141,99 +2128,93 @@ class _MembersTabViewState extends State<MembersTabView> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Учасників ще немає.'),
-                    SizedBox(height: 10),
+                    const Text('Учасників ще немає.'),
+                    const SizedBox(height: 10),
                     ElevatedButton.icon(
-                      icon: Icon(Icons.refresh),
-                      label: Text('Оновити'),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Оновити'),
                       onPressed: _loadMembers,
                     ),
                   ],
                 ),
               );
-
             members.sort((a, b) {
               if (a.role == CourseRole.OWNER) return -1;
               if (b.role == CourseRole.OWNER) return 1;
-
               int roleComparison = a.role.index.compareTo(b.role.index);
-              if (roleComparison != 0) return roleComparison;
-              return a.username.toLowerCase().compareTo(
+              return (roleComparison != 0)
+                  ? roleComparison
+                  : a.username.toLowerCase().compareTo(
                 b.username.toLowerCase(),
               );
             });
-
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: members.length,
               itemBuilder: (context, index) {
                 final member = members[index];
-
                 final bool canManageThisMember =
                     canManageMembers &&
-                    member.username != _currentUsername &&
-                    member.role != CourseRole.OWNER;
-
+                        member.username != widget.currentUsername &&
+                        member.role != CourseRole.OWNER;
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors
                         .accents[index % Colors.accents.length]
                         .withOpacity(0.2),
+                    foregroundColor:
+                    Colors.accents[index % Colors.accents.length].shade700,
                     child: Text(
                       member.username.isNotEmpty
                           ? member.username[0].toUpperCase()
                           : '?',
                     ),
-                    foregroundColor:
-                        Colors.accents[index % Colors.accents.length].shade700,
                   ),
                   title: Text(member.username),
                   subtitle: Text(
                     member.role.name,
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
-
                   trailing: canManageThisMember
                       ? PopupMenuButton<String>(
-                          icon: Icon(
-                            Icons.more_vert,
-                            color: Colors.grey.shade700,
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: Colors.grey.shade700,
+                    ),
+                    tooltip: 'Опції для ${member.username}',
+                    onSelected: (value) {
+                      if (value == 'change_role')
+                        _changeMemberRole(member);
+                      else if (value == 'delete')
+                        _deleteMember(member);
+                    },
+                    itemBuilder: (BuildContext context) =>
+                    <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'change_role',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.manage_accounts_outlined,
                           ),
-                          tooltip: 'Опції для ${member.username}',
-                          onSelected: (value) {
-                            if (value == 'change_role') {
-                              _changeMemberRole(member);
-                            } else if (value == 'delete') {
-                              _deleteMember(member);
-                            }
-                          },
-                          itemBuilder: (BuildContext context) =>
-                              <PopupMenuEntry<String>>[
-                                const PopupMenuItem<String>(
-                                  value: 'change_role',
-                                  child: ListTile(
-                                    leading: Icon(
-                                      Icons.manage_accounts_outlined,
-                                    ),
-                                    title: Text('Змінити роль'),
-                                  ),
-                                ),
-                                const PopupMenuDivider(),
-                                const PopupMenuItem<String>(
-                                  value: 'delete',
-                                  child: ListTile(
-                                    leading: Icon(
-                                      Icons.person_remove_outlined,
-                                      color: Colors.red,
-                                    ),
-                                    title: Text(
-                                      'Видалити',
-                                      style: TextStyle(color: Colors.red),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                        )
+                          title: Text('Змінити роль'),
+                        ),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.person_remove_outlined,
+                            color: Colors.red,
+                          ),
+                          title: Text(
+                            'Видалити',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                       : null,
                 );
               },
@@ -2241,13 +2222,12 @@ class _MembersTabViewState extends State<MembersTabView> {
           },
         ),
       ),
-
       floatingActionButton: canAddMembers
           ? FloatingActionButton(
-              onPressed: _showAddMemberDialog,
-              tooltip: 'Додати учасника',
-              child: const Icon(Icons.add),
-            )
+        onPressed: _showAddMemberDialog,
+        tooltip: 'Додати учасника',
+        child: const Icon(Icons.add),
+      )
           : null,
     );
   }
@@ -2280,29 +2260,28 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
   }
 
   void _loadMaterials() {
-    if (mounted) {
+    if (mounted)
       setState(() {
         _materialsFuture = _courseService
             .getCourseMaterials(widget.authToken, widget.courseId)
             .catchError((e) {
-              if (mounted)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Помилка завантаження матеріалів: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              throw e;
-            });
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Помилка завантаження матеріалів: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          throw e;
+        });
       });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final bool canManage =
         widget.currentUserRole == CourseRole.OWNER ||
-        widget.currentUserRole == CourseRole.PROFESSOR;
+            widget.currentUserRole == CourseRole.PROFESSOR;
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async => _loadMaterials(),
@@ -2315,7 +2294,7 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
               return Center(
                 child: Text(
                   "Помилка: ${snapshot.error.toString().replaceFirst("Exception: ", "")}",
-                  style: TextStyle(color: Colors.red),
+                  style: const TextStyle(color: Colors.red),
                 ),
               );
             final materials = snapshot.data ?? [];
@@ -2324,17 +2303,16 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Матеріалів ще немає.'),
-                    SizedBox(height: 10),
+                    const Text('Матеріалів ще немає.'),
+                    const SizedBox(height: 10),
                     ElevatedButton.icon(
-                      icon: Icon(Icons.refresh),
-                      label: Text('Оновити'),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Оновити'),
                       onPressed: _loadMaterials,
                     ),
                   ],
                 ),
               );
-
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16),
@@ -2356,7 +2334,7 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
                     subtitle: Text(
                       material.textContent.isNotEmpty
                           ? material.textContent
-                          : 'Без опису',
+                          : 'Показати більше',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -2392,21 +2370,21 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
       ),
       floatingActionButton: canManage
           ? FloatingActionButton(
-              onPressed: () async {
-                final result = await Navigator.push<bool>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CreateMaterialScreen(
-                      authToken: widget.authToken,
-                      courseId: widget.courseId,
-                    ),
-                  ),
-                );
-                if (result == true && mounted) _loadMaterials();
-              },
-              tooltip: 'Додати матеріал',
-              child: const Icon(Icons.add),
-            )
+        onPressed: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CreateMaterialScreen(
+                authToken: widget.authToken,
+                courseId: widget.courseId,
+              ),
+            ),
+          );
+          if (result == true && mounted) _loadMaterials();
+        },
+        tooltip: 'Додати матеріал',
+        child: const Icon(Icons.add),
+      )
           : null,
     );
   }
@@ -2441,39 +2419,36 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
   }
 
   void _loadMaterialDetails() {
-    if (mounted) {
+    if (mounted)
       setState(() {
         _materialFuture = CourseService()
             .getMaterialDetails(
-              widget.authToken,
-              widget.courseId,
-              widget.materialId,
-            )
+          widget.authToken,
+          widget.courseId,
+          widget.materialId,
+        )
             .catchError((e) {
-              if (mounted)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Помилка завантаження деталей: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-
-              throw e;
-            });
+          if (mounted)
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Помилка завантаження деталей: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          throw e;
+        });
       });
-    }
   }
 
   Future<void> _downloadAndOpenFile(String publicUrl, String fileName) async {
     if (_isDownloading || !mounted) return;
     setState(() => _isDownloading = true);
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     scaffoldMessenger.hideCurrentSnackBar();
     scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Text('Обробка файлу: $fileName...'),
-        duration: Duration(minutes: 5),
+        duration: const Duration(minutes: 5),
       ),
     );
     try {
@@ -2506,7 +2481,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text('Завантаження: $fileName...'),
-          duration: Duration(minutes: 5),
+          duration: const Duration(minutes: 5),
         ),
       );
       final response = await http.get(Uri.parse(directDownloadUrl));
@@ -2520,7 +2495,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         if (!mounted) return;
         scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Відкриття файлу...')),
+          const SnackBar(content: Text('Відкриття файлу...')),
         );
         final result = await OpenFilex.open(filePath);
         if (result.type != ResultType.done)
@@ -2531,7 +2506,6 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
         );
       }
     } catch (e) {
-      print("File download/open error: $e");
       if (mounted) {
         scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
@@ -2546,8 +2520,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
     } finally {
       if (mounted) {
         setState(() => _isDownloading = false);
-
-        Future.delayed(Duration(seconds: 2), () {
+        Future.delayed(const Duration(seconds: 2), () {
           if (mounted) scaffoldMessenger.hideCurrentSnackBar();
         });
       }
@@ -2620,13 +2593,14 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                         ],
                       ),
                     ) ??
-                    false;
+                        false;
                 if (confirm && mounted) {
                   final currentContext = context;
                   showDialog(
                     context: currentContext,
                     barrierDismissible: false,
-                    builder: (_) => Center(child: CircularProgressIndicator()),
+                    builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
                   );
                   try {
                     await CourseService().deleteMaterial(
@@ -2637,7 +2611,7 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                     if (mounted) {
                       Navigator.pop(currentContext);
                       ScaffoldMessenger.of(currentContext).showSnackBar(
-                        SnackBar(content: Text('Матеріал видалено.')),
+                        const SnackBar(content: Text('Матеріал видалено.')),
                       );
                       Navigator.pop(currentContext, true);
                     }
@@ -2668,10 +2642,9 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
             return Center(
               child: Text(
                 'Помилка завантаження матеріалу: ${snapshot.error.toString().replaceFirst("Exception: ", "")}',
-                style: TextStyle(color: Colors.red),
+                style: const TextStyle(color: Colors.red),
               ),
             );
-
           final material = snapshot.data!;
           return RefreshIndicator(
             onRefresh: () async => _loadMaterialDetails(),
@@ -2712,13 +2685,13 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                       children: material.tags
                           .map(
                             (t) => Chip(
-                              label: Text(t.name),
-                              backgroundColor: Colors.blueGrey.shade50,
-                              labelStyle: TextStyle(
-                                color: Colors.blueGrey.shade800,
-                              ),
-                            ),
-                          )
+                          label: Text(t.name),
+                          backgroundColor: Colors.blueGrey.shade50,
+                          labelStyle: TextStyle(
+                            color: Colors.blueGrey.shade800,
+                          ),
+                        ),
+                      )
                           .toList(),
                     ),
                   ),
@@ -2728,45 +2701,44 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-
                   Column(
                     children: material.media
                         .map(
                           (file) => Card(
-                            elevation: 1,
-                            margin: EdgeInsets.symmetric(vertical: 4),
-                            child: ListTile(
-                              leading: Icon(
-                                Icons.attach_file,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              title: Text(
-                                file.displayName,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: _isDownloading
-                                  ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.download_for_offline_outlined,
-                                      color: Colors.grey.shade600,
-                                    ),
-                              onTap: _isDownloading
-                                  ? null
-                                  : () => _downloadAndOpenFile(
-                                      file.fileUrl,
-                                      file.displayName,
-                                    ),
-                              dense: true,
-                            ),
+                        elevation: 1,
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          leading: Icon(
+                            Icons.attach_file,
+                            color: Theme.of(context).primaryColor,
                           ),
-                        )
+                          title: Text(
+                            file.displayName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: _isDownloading
+                              ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                              : Icon(
+                            Icons.download_for_offline_outlined,
+                            color: Colors.grey.shade600,
+                          ),
+                          onTap: _isDownloading
+                              ? null
+                              : () => _downloadAndOpenFile(
+                            file.fileUrl,
+                            file.displayName,
+                          ),
+                          dense: true,
+                        ),
+                      ),
+                    )
                         .toList(),
                   ),
                 ] else ...[
@@ -2822,9 +2794,8 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
         allowMultiple: true,
         type: FileType.any,
       );
-      if (result != null && mounted) {
+      if (result != null && mounted)
         setState(() => _pickedFiles.addAll(result.files));
-      }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2841,7 +2812,6 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
-
       FocusScope.of(context).unfocus();
       try {
         final topic = _topicController.text.trim();
@@ -2851,10 +2821,9 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
             .map((s) => s.trim())
             .where((s) => s.isNotEmpty)
             .toList();
-
         scaffoldMessenger.hideCurrentSnackBar();
         scaffoldMessenger.showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Створення матеріалу...'),
             duration: Duration(minutes: 1),
           ),
@@ -2866,7 +2835,6 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
           content,
           tags,
         );
-
         if (_pickedFiles.isNotEmpty) {
           final pCloudService = PCloudService();
           scaffoldMessenger.hideCurrentSnackBar();
@@ -2875,7 +2843,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
               content: Text(
                 'Завантаження файлів (0/${_pickedFiles.length})...',
               ),
-              duration: Duration(minutes: 5),
+              duration: const Duration(minutes: 5),
             ),
           );
           for (int i = 0; i < _pickedFiles.length; i++) {
@@ -2887,7 +2855,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                 content: Text(
                   'Файл ${i + 1}/${_pickedFiles.length}: ${file.name}...',
                 ),
-                duration: Duration(minutes: 5),
+                duration: const Duration(minutes: 5),
               ),
             );
             final fileUrl = await pCloudService.uploadFileAndGetPublicLink(
@@ -2907,13 +2875,12 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
         if (mounted) {
           scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('Матеріал створено!')),
+            const SnackBar(content: Text('Матеріал створено!')),
           );
           Navigator.pop(context, true);
         }
       } catch (e) {
-        if (mounted) {
-          scaffoldMessenger.hideCurrentSnackBar();
+        if (mounted)
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -2922,7 +2889,6 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
               backgroundColor: Colors.red,
             ),
           );
-        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -2945,7 +2911,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                 border: OutlineInputBorder(),
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Введіть тему' : null,
+              v == null || v.trim().isEmpty ? 'Введіть тему' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -2980,17 +2946,14 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                 itemCount: _pickedFiles.length,
                 itemBuilder: (context, index) {
                   final file = _pickedFiles[index];
-                  String fileSize;
-                  if (file.size > 1024 * 1024)
-                    fileSize =
-                        '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB';
-                  else if (file.size > 1024)
-                    fileSize = '${(file.size / 1024).toStringAsFixed(2)} KB';
-                  else
-                    fileSize = '${file.size} B';
+                  String fileSize = file.size > 1048576
+                      ? '${(file.size / 1048576).toStringAsFixed(2)} MB'
+                      : file.size > 1024
+                      ? '${(file.size / 1024).toStringAsFixed(2)} KB'
+                      : '${file.size} B';
                   return Card(
                     child: ListTile(
-                      leading: Icon(Icons.insert_drive_file_outlined),
+                      leading: const Icon(Icons.insert_drive_file_outlined),
                       title: Text(file.name, overflow: TextOverflow.ellipsis),
                       subtitle: Text(fileSize),
                       trailing: IconButton(
@@ -2999,7 +2962,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () =>
-                                  setState(() => _pickedFiles.removeAt(index)),
+                            setState(() => _pickedFiles.removeAt(index)),
                       ),
                     ),
                   );
@@ -3009,14 +2972,14 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : _submitForm,
               child: _isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
                   : const Text('Зберегти матеріал'),
             ),
           ],
@@ -3080,18 +3043,16 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
         allowMultiple: true,
         type: FileType.any,
       );
-      if (result != null && mounted) {
+      if (result != null && mounted)
         setState(() => _newFiles.addAll(result.files));
-      }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Помилка вибору файлів: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      }
     }
   }
 
@@ -3109,29 +3070,39 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             .map((s) => s.trim())
             .where((s) => s.isNotEmpty)
             .toList();
+        bool textOrTagsChanged =
+            topic != widget.material.topic ||
+                content != widget.material.textContent ||
+                !_listEquals(
+                  tags,
+                  widget.material.tags.map((t) => t.name).toList(),
+                );
 
         scaffoldMessenger.hideCurrentSnackBar();
-        scaffoldMessenger.showSnackBar(
-          SnackBar(
-            content: Text('Оновлення тексту та тегів...'),
-            duration: Duration(minutes: 1),
-          ),
-        );
 
-        await CourseService().patchMaterial(
-          widget.authToken,
-          widget.courseId,
-          widget.material.id,
-          topic,
-          content,
-          tags,
-        );
+        if (textOrTagsChanged) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Оновлення тексту та тегів...'),
+              duration: Duration(minutes: 1),
+            ),
+          );
+          await CourseService().patchMaterial(
+            widget.authToken,
+            widget.courseId,
+            widget.material.id,
+            textOrTagsChanged ? topic : null,
+            textOrTagsChanged ? content : null,
+            textOrTagsChanged ? tags : null,
+          );
+        }
+
         if (_filesToDelete.isNotEmpty) {
           scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text('Видалення файлів (0/${_filesToDelete.length})...'),
-              duration: Duration(minutes: 5),
+              duration: const Duration(minutes: 5),
             ),
           );
           for (int i = 0; i < _filesToDelete.length; i++) {
@@ -3143,7 +3114,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 content: Text(
                   'Видалення ${i + 1}/${_filesToDelete.length}: ${fileToDelete.displayName}...',
                 ),
-                duration: Duration(minutes: 5),
+                duration: const Duration(minutes: 5),
               ),
             );
             await CourseService().deleteMaterialFile(
@@ -3154,7 +3125,6 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             );
           }
         }
-
         if (_newFiles.isNotEmpty) {
           final pCloudService = PCloudService();
           scaffoldMessenger.hideCurrentSnackBar();
@@ -3163,7 +3133,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
               content: Text(
                 'Завантаження нових файлів (0/${_newFiles.length})...',
               ),
-              duration: Duration(minutes: 5),
+              duration: const Duration(minutes: 5),
             ),
           );
           for (int i = 0; i < _newFiles.length; i++) {
@@ -3175,7 +3145,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 content: Text(
                   'Завантаження ${i + 1}/${_newFiles.length}: ${file.name}...',
                 ),
-                duration: Duration(minutes: 5),
+                duration: const Duration(minutes: 5),
               ),
             );
             final fileUrl = await pCloudService.uploadFileAndGetPublicLink(
@@ -3192,17 +3162,15 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             );
           }
         }
-
         if (mounted) {
           scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('Матеріал оновлено!')),
+            const SnackBar(content: Text('Матеріал оновлено!')),
           );
           Navigator.pop(context, true);
         }
       } catch (e) {
-        if (mounted) {
-          scaffoldMessenger.hideCurrentSnackBar();
+        if (mounted)
           scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text(
@@ -3211,11 +3179,20 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
               backgroundColor: Colors.red,
             ),
           );
-        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
     }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    a.sort();
+    b.sort();
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   @override
@@ -3234,7 +3211,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 border: OutlineInputBorder(),
               ),
               validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Введіть тему' : null,
+              v == null || v.trim().isEmpty ? 'Введіть тему' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -3264,7 +3241,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             if (_existingFiles.isEmpty &&
                 _newFiles.isEmpty &&
                 _filesToDelete.isEmpty)
-              Padding(
+              const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   'Файлів немає.',
@@ -3291,9 +3268,9 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () => setState(() {
-                                _filesToDelete.add(file);
-                                _existingFiles.removeAt(index);
-                              }),
+                          _filesToDelete.add(file);
+                          _existingFiles.removeAt(index);
+                        }),
                       ),
                     ),
                   );
@@ -3314,14 +3291,11 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 itemCount: _newFiles.length,
                 itemBuilder: (context, index) {
                   final file = _newFiles[index];
-                  String fileSize;
-                  if (file.size > 1024 * 1024)
-                    fileSize =
-                        '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB';
-                  else if (file.size > 1024)
-                    fileSize = '${(file.size / 1024).toStringAsFixed(2)} KB';
-                  else
-                    fileSize = '${file.size} B';
+                  String fileSize = file.size > 1048576
+                      ? '${(file.size / 1048576).toStringAsFixed(2)} MB'
+                      : file.size > 1024
+                      ? '${(file.size / 1024).toStringAsFixed(2)} KB'
+                      : '${file.size} B';
                   return Card(
                     color: Colors.green.shade50,
                     child: ListTile(
@@ -3343,8 +3317,8 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 },
               ),
             if (_filesToDelete.isNotEmpty) ...[
-              SizedBox(height: 16),
-              Text(
+              const SizedBox(height: 16),
+              const Text(
                 'Файли для видалення:',
                 style: TextStyle(
                   color: Colors.red,
@@ -3366,7 +3340,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                       ),
                       title: Text(
                         file.displayName,
-                        style: TextStyle(
+                        style: const TextStyle(
                           decoration: TextDecoration.lineThrough,
                         ),
                       ),
@@ -3376,9 +3350,9 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () => setState(() {
-                                _existingFiles.add(file);
-                                _filesToDelete.removeAt(index);
-                              }),
+                          _existingFiles.add(file);
+                          _filesToDelete.removeAt(index);
+                        }),
                       ),
                     ),
                   );
@@ -3389,14 +3363,14 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : _submitForm,
               child: _isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
+                  ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
                   : const Text('Зберегти зміни'),
             ),
           ],
@@ -3418,6 +3392,7 @@ class CreateCourseScreen extends StatefulWidget {
 class _CreateCourseScreenState extends State<CreateCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final CourseService _courseService = CourseService();
   bool _isCreating = false;
   File? _courseImageFile;
@@ -3426,6 +3401,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -3438,20 +3414,16 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
         maxWidth: 1024,
         maxHeight: 1024,
       );
-      if (pickedFile != null && mounted) {
-        setState(() {
-          _courseImageFile = File(pickedFile.path);
-        });
-      }
+      if (pickedFile != null && mounted)
+        setState(() => _courseImageFile = File(pickedFile.path));
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Помилка вибору зображення: $e'),
             backgroundColor: Colors.red,
           ),
         );
-      }
     }
   }
 
@@ -3461,9 +3433,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
       setState(() => _isCreating = true);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
       FocusScope.of(context).unfocus();
-
       String? finalPhotoUrl;
-
       try {
         if (_courseImageFile != null) {
           scaffoldMessenger.hideCurrentSnackBar();
@@ -3473,20 +3443,17 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
               duration: Duration(minutes: 1),
             ),
           );
-
           final pCloudService = PCloudService();
           final platformFile = PlatformFile(
             name: _courseImageFile!.path.split('/').last,
             path: _courseImageFile!.path,
             size: await _courseImageFile!.length(),
           );
-
           finalPhotoUrl = await pCloudService.uploadFileAndGetPublicLink(
             file: platformFile,
             authToken: widget.authToken,
             purpose: 'course-photo',
           );
-
           scaffoldMessenger.hideCurrentSnackBar();
           scaffoldMessenger.showSnackBar(
             const SnackBar(
@@ -3499,8 +3466,8 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
           widget.authToken,
           _nameController.text.trim(),
           photoUrl: finalPhotoUrl,
+          description: _descriptionController.text.trim(),
         );
-
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             const SnackBar(content: Text('Курс успішно створено!')),
@@ -3551,14 +3518,14 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                         : null,
                     child: _courseImageFile == null
                         ? Icon(
-                            Icons.school_outlined,
-                            size: 60,
-                            color: Colors.grey.shade600,
-                          )
+                      Icons.school_outlined,
+                      size: 60,
+                      color: Colors.grey.shade600,
+                    )
                         : null,
                   ),
                   IconButton(
-                    icon: CircleAvatar(
+                    icon: const CircleAvatar(
                       radius: 20,
                       backgroundColor: primaryColor,
                       child: Icon(Icons.edit, color: Colors.white, size: 20),
@@ -3584,17 +3551,29 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(
+                  labelText: 'Опис (необов\'язково)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.description_outlined),
+                  alignLabelWithHint: true,
+                ),
+                maxLines: 4,
+                minLines: 2,
+              ),
               const SizedBox(height: 40),
               ElevatedButton.icon(
                 icon: _isCreating
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
+                    ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
                     : const Icon(Icons.check),
                 label: Text(_isCreating ? 'Створення...' : 'Створити курс'),
                 onPressed: _isCreating ? null : _submitForm,
@@ -3602,7 +3581,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: TextStyle(fontSize: 16),
+                  textStyle: const TextStyle(fontSize: 16),
                 ),
               ),
               const SizedBox(height: 20),

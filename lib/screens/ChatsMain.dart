@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:stomp_dart_client/stomp.dart';
 import 'package:stomp_dart_client/stomp_config.dart';
@@ -64,9 +63,6 @@ class ChatsMain extends StatefulWidget {
 }
 
 class _ChatsMainState extends State<ChatsMain> {
-  final String _hostname = "team-room-back.onrender.com";
-  final String _searchUsersEndpoint = "/users/search";
-  bool _showProfileIcon = true;
   StompClient? _stompClient;
   List<Room> _rooms = [];
   bool _isLoading = true;

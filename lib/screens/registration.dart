@@ -74,7 +74,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     const Color rightPanelColor = Color(0xFF62567E);
     const Color buttonBackgroundColor = Color(0xFFB6A5DE);
     const Color hintTextColor = Color(0xFF62567E);
-    const Color linkTextColor = Color(0xFFFFFFFFA);
+    const Color linkTextColor = Color(0xffffffffa);
 
     return Scaffold(
       body: Row(

@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 enum CourseRole { OWNER, PROFESSOR, LEADER, STUDENT, VIEWER }
 
@@ -8,6 +7,9 @@ class Course {
   final String? photoUrl;
   final bool isOpen;
   final int memberCount;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final String? description;
 
   Course({
     required this.id,
@@ -15,20 +17,26 @@ class Course {
     this.photoUrl,
     required this.isOpen,
     required this.memberCount,
+    this.createdAt,
+    this.updatedAt,
+    this.description,
   });
 
   factory Course.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Error: Course JSON missing 'id': $json");
-      throw FormatException("Field 'id' is missing in Course JSON.");
-    }
-    int count = json['memberCount'] ?? 0;
+    int count = json['membersCount'] ?? (json['members'] as List?)?.length ?? 0;
     return Course(
       id: json['id'],
       name: json['name'] ?? 'Без назви',
       photoUrl: json['photoUrl'],
-      isOpen: json['open'] ?? true,
+      isOpen: json['isOpen'] ?? json['open'] ?? true,
       memberCount: count,
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'])
+          : null,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.tryParse(json['updatedAt'])
+          : null,
+      description: json['description'],
     );
   }
 }
@@ -41,15 +49,9 @@ class CourseMember {
 
   factory CourseMember.fromJson(Map<String, dynamic> json) {
     String roleString = (json['role'] as String?)?.toUpperCase() ?? 'VIEWER';
-
     CourseRole role = CourseRole.values.firstWhere(
           (e) => e.name.toUpperCase() == roleString,
-      orElse: () {
-        print(
-          "Warning: Unknown role '$roleString' received for user '${json['username']}'. Defaulting to VIEWER.",
-        );
-        return CourseRole.VIEWER;
-      },
+      orElse: () => CourseRole.VIEWER,
     );
     return CourseMember(username: json['username'] ?? 'unknown', role: role);
   }
@@ -76,9 +78,6 @@ class MediaFile {
   });
 
   factory MediaFile.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Warning: MediaFile JSON missing 'id': $json");
-    }
     return MediaFile(
       id: json['id'] ?? 0,
       displayName:
@@ -106,9 +105,6 @@ class CourseMaterial {
   });
 
   factory CourseMaterial.fromJson(Map<String, dynamic> json) {
-    if (json['id'] == null) {
-      print("Warning: CourseMaterial JSON missing 'id': $json");
-    }
     return CourseMaterial(
       id: json['id'] ?? 0,
       topic: json['topic'] ?? 'Без теми',
@@ -127,31 +123,86 @@ class CourseMaterial {
 class Assignment {
   final int id;
   final String title;
-  final String? description;
+  final String description;
   final String authorUsername;
-  final DateTime? dueDate;
-  final double? maxGrade;
+  final DateTime? deadline;
+  final int? maxGrade;
+  final List<Tag> tags;
   final List<MediaFile> media;
 
   Assignment({
     required this.id,
     required this.title,
-    this.description,
+    required this.description,
     required this.authorUsername,
-    this.dueDate,
+    this.deadline,
     this.maxGrade,
+    this.tags = const [],
     this.media = const [],
   });
 
   factory Assignment.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(String? dateStr) {
+      if (dateStr == null) return null;
+      try {
+        return DateTime.parse(dateStr);
+      } catch (e) {
+        return null;
+      }
+    }
+
     return Assignment(
       id: json['id'] ?? 0,
-      title: json['title'] ?? 'Без назви',
-      description: json['description'],
+      title: json['title'] ?? 'Без теми',
+      description: json['description'] ?? '',
       authorUsername: json['authorUsername'] ?? 'unknown',
-      dueDate:
-      json['dueDate'] != null ? DateTime.tryParse(json['dueDate']) : null,
-      maxGrade: (json['maxGrade'] as num?)?.toDouble(),
+      deadline: parseDate(json['deadline']),
+      maxGrade: json['maxGrade'],
+      tags: (json['tags'] as List? ?? [])
+          .map((tagJson) => Tag.fromJson(tagJson))
+          .toList(),
+      media: (json['media'] as List? ?? [])
+          .map((fileJson) => MediaFile.fromJson(fileJson))
+          .toList(),
+    );
+  }
+}
+
+class AssignmentResponse {
+  final int id;
+  final int assignmentId;
+  final String authorUsername;
+  final bool isReturned;
+  final String? returnComment;
+  final bool isGraded;
+  final int? grade;
+  final String? gradeComment;
+  final List<MediaFile> media;
+
+  AssignmentResponse({
+    required this.id,
+    required this.assignmentId,
+    required this.authorUsername,
+    required this.isReturned,
+    this.returnComment,
+    required this.isGraded,
+    this.grade,
+    this.gradeComment,
+    this.media = const [],
+  });
+
+  factory AssignmentResponse.fromJson(Map<String, dynamic> json) {
+    String author =
+        json['authorUsername'] ?? json['author_username'] ?? 'unknown_author';
+    return AssignmentResponse(
+      id: json['id'] ?? 0,
+      assignmentId: json['assignment_id'] ?? json['assignmentId'] ?? 0,
+      authorUsername: author,
+      isReturned: json['is_returned'] ?? json['isReturned'] ?? false,
+      returnComment: json['return_comment'] ?? json['returnComment'],
+      isGraded: json['is_graded'] ?? json['isGraded'] ?? false,
+      grade: json['grade'],
+      gradeComment: json['grade_comment'] ?? json['gradeComment'],
       media: (json['media'] as List? ?? [])
           .map((fileJson) => MediaFile.fromJson(fileJson))
           .toList(),

@@ -310,7 +310,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => HomeScreen(authToken: widget.authToken),
+                builder: (context) => HomeScreen(
+                  authToken: widget.authToken,
+                  username: _firstNameController.text,
+                ),
               ),
             );
           },
