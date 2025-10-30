@@ -1,13 +1,11 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../classes/course_models.dart';
 import 'CoursesScreen.dart';
 import 'pcloud_service.dart';
@@ -249,9 +247,6 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   final GlobalKey<_AssignmentResponsesSectionState> _responsesSectionKey =
   GlobalKey();
 
-  String get _studentResponsePrefKey =>
-      'assignment_response_id_${widget.assignmentId}_user_${widget.currentUsername}';
-
   @override
   void initState() {
     super.initState();
@@ -263,49 +258,19 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     if (widget.currentUserRole != CourseRole.STUDENT || !mounted) return;
     setState(() => _isLoadingStudentResponse = true);
 
-    final prefs = await SharedPreferences.getInstance();
-    int? savedId = prefs.getInt(_studentResponsePrefKey);
-
-    if (savedId != null) {
-      print("Found saved response ID: $savedId. Loading details...");
-      await _loadSpecificStudentResponse(savedId, prefs);
-    } else {
-      print("No saved response ID found for this assignment.");
-      if (mounted) {
-        setState(() {
-          _studentResponse = null;
-          _isLoadingStudentResponse = false;
-          _responsesSectionKey.currentState?.updateStudentResponse(null);
-        });
-      }
-    }
-  }
-
-  Future<void> _loadSpecificStudentResponse(int responseId,
-      [SharedPreferences? prefs]) async {
-    if (!mounted || widget.currentUserRole != CourseRole.STUDENT) return;
-
-    if (!_isLoadingStudentResponse) {
-      setState(() => _isLoadingStudentResponse = true);
-    }
-
     try {
-      final response = await CourseService().getAssignmentResponseDetails(
-          widget.authToken, widget.courseId, widget.assignmentId, responseId);
-      if (mounted && response.authorUsername == widget.currentUsername) {
+      final response = await CourseService().getMyAssignmentResponse(
+        widget.authToken,
+        widget.courseId,
+        widget.assignmentId,
+      );
+
+      if (mounted) {
         _studentResponse = response;
-      } else {
-        _studentResponse = null;
-        print("Loaded response ID $responseId, but author mismatch.");
       }
     } catch (e) {
-      print("Error loading specific student response $responseId: $e");
-
-      if (e.toString().contains('(Статус: 404)')) {
-        print("Response $responseId not found, removing from prefs.");
-        final localPrefs = prefs ?? await SharedPreferences.getInstance();
-        await localPrefs.remove(_studentResponsePrefKey);
-      } else if (mounted) {
+      print("Error loading my assignment response: $e");
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Не вдалося завантажити вашу відповідь: $e'),
             backgroundColor: Colors.red));
@@ -750,30 +715,36 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
                     icon: const Icon(Icons.upload_file),
                     label: const Text('Здати / Перездати роботу'),
                     onPressed: () async {
+                      // 💡 --- ОНОВЛЕНА ЛОГІКА --- 💡
+                      // 1. Отримуємо поточну відповідь, яка вже завантажена
+                      final AssignmentResponse? existingResponse = _studentResponse;
+
                       final result = await Navigator.push<int>(
                           context,
                           MaterialPageRoute(
                               builder: (_) => SubmitResponseScreen(
-                                  authToken: widget.authToken,
-                                  courseId: widget.courseId,
-                                  assignmentId: widget.assignmentId)));
+                                authToken: widget.authToken,
+                                courseId: widget.courseId,
+                                assignmentId: widget.assignmentId,
+                                // 2. Передаємо поточну відповідь (або null) на екран здачі
+                                existingResponse: existingResponse,
+                              )));
 
-                      if (result != null && result > 0 && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content:
-                                Text('Відповідь надіслано / оновлено')));
-
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setInt(_studentResponsePrefKey, result);
-                        print("Saved new response ID: $result to key: $_studentResponsePrefKey");
-
-                        _loadSpecificStudentResponse(result);
-                      } else if (result == 0 && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text(
-                                'Відповідь надіслано, але ID не отримано. Спробуйте оновити.'),
-                            backgroundColor: Colors.orange));
+                      if (result != null && mounted) {
+                        if (result > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Відповідь надіслано / оновлено')));
+                        } else {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(const SnackBar(
+                              content: Text(
+                                  'Відповідь надіслано, але ID не отримано. Оновлюємо...'),
+                              backgroundColor: Colors.orange));
+                        }
+                        // 3. Просто перезавантажуємо "мою" відповідь.
+                        // Бекенд тепер поверне щойно створену.
                         _loadStudentResponseData();
                       }
                     },
@@ -1383,12 +1354,16 @@ class SubmitResponseScreen extends StatefulWidget {
   final String authToken;
   final int courseId;
   final int assignmentId;
+  // 💡 --- ДОДАНО --- 💡
+  final AssignmentResponse? existingResponse;
 
   const SubmitResponseScreen({
     super.key,
     required this.authToken,
     required this.courseId,
     required this.assignmentId,
+    // 💡 --- ДОДАНО --- 💡
+    this.existingResponse,
   });
 
   @override
@@ -1480,6 +1455,38 @@ class _SubmitResponseScreenState extends State<SubmitResponseScreen> {
         throw Exception("Не вдалося завантажити жодного файлу.");
       }
 
+      // 💡 --- ОНОВЛЕНА ЛОГІКА --- 💡
+      // 1. Перевіряємо, чи ми передали існуючу відповідь
+      if (widget.existingResponse != null) {
+        setState(() => _uploadProgress = 'Видалення старої відповіді...');
+        scaffoldMessenger.hideCurrentSnackBar();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(_uploadProgress),
+            duration: const Duration(minutes: 1),
+          ),
+        );
+
+        try {
+          // 2. Видаляємо її
+          await CourseService().deleteAssignmentResponse(
+            widget.authToken,
+            widget.courseId,
+            widget.assignmentId,
+            widget.existingResponse!.id,
+          );
+          print("Deleted old response ID: ${widget.existingResponse!.id}");
+        } catch (delErr) {
+          // Не фатально, якщо не вдалося видалити (може, її вже видалили),
+          // але логгуємо це.
+          print("Could not delete old response: $delErr");
+          // Продовжуємо, бо бекенд, ймовірно, все одно впаде з 500,
+          // але краще спробувати створити нову, ніж нічого.
+        }
+      }
+      // 💡 --- КІНЕЦЬ ОНОВЛЕННЯ --- 💡
+
+
       setState(() {
         _uploadProgress = 'Надсилання відповіді...';
       });
@@ -1491,6 +1498,7 @@ class _SubmitResponseScreenState extends State<SubmitResponseScreen> {
         ),
       );
 
+      // 3. Створюємо нову відповідь (як і раніше)
       createdResponseId = await CourseService().submitAssignmentResponse(
         widget.authToken,
         widget.courseId,
@@ -1527,7 +1535,11 @@ class _SubmitResponseScreenState extends State<SubmitResponseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Здати / Перездати роботу')),
+      appBar: AppBar(title: Text(
+          widget.existingResponse != null
+              ? 'Перездати роботу'
+              : 'Здати роботу'
+      )),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1658,9 +1670,6 @@ class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
   bool _isDownloading = false;
   bool _isProcessingAction = false;
   Future<Assignment>? _parentAssignmentFuture;
-
-  String get _studentResponsePrefKey =>
-      'assignment_response_id_${widget.assignmentId}_user_${widget.currentUsername}';
 
   @override
   void initState() {
@@ -2182,11 +2191,7 @@ class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
         widget.responseId,
       );
 
-      if (isAuthor) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(_studentResponsePrefKey);
-        print("Cleared saved response ID for assignment ${widget.assignmentId}");
-      }
+      // (Логіку SharedPreferences видалено)
 
       if (mounted) {
         scaffoldMessenger.showSnackBar(

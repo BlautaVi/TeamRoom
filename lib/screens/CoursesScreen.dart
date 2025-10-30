@@ -11,9 +11,12 @@ import 'assignment_screens.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import '../classes/course_models.dart';
+import 'package:webview_windows/webview_windows.dart';
+import 'dart:io' show Platform;
 
 class CourseService {
-  final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
+  //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
+  final String _apiBaseUrl = "http://localhost:8080/api";
 
   Exception _handleErrorResponse(http.Response response, String context) {
     String errorMessage = 'Невідома помилка';
@@ -674,6 +677,37 @@ class CourseService {
       throw _handleErrorResponse(
         response,
         'Не вдалося завантажити деталі відповіді',
+      );
+    }
+  }
+
+  Future<AssignmentResponse?> getMyAssignmentResponse(
+      String token,
+      int courseId,
+      int assignmentId,
+      ) async {
+    final response = await http.get(
+      Uri.parse(
+        '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/my',
+      ),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+
+    if (response.statusCode == 200) {
+      try {
+        return AssignmentResponse.fromJson(
+          jsonDecode(utf8.decode(response.bodyBytes)),
+        );
+      } catch (e) {
+        throw Exception('Помилка обробки даних "моєї" відповіді.');
+      }
+    } else if (response.statusCode == 404) {
+      print("getMyAssignmentResponse: No response found (404)");
+      return null;
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити "мою" відповідь на завдання',
       );
     }
   }
@@ -1668,7 +1702,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       );
       try {
         await CourseService().deleteCourse(widget.authToken, widget.course.id);
-        Navigator.pop(context); // close progress
+        Navigator.pop(context);
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('Курс "$_courseName" видалено.')),
@@ -1676,10 +1710,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           Navigator.pop(
             context,
             true,
-          ); // back to courses list with refresh flag
+          );
         }
       } catch (e) {
-        Navigator.pop(context); // close progress
+        Navigator.pop(context);
         if (mounted) {
           scaffoldMessenger.showSnackBar(
             SnackBar(
@@ -1756,7 +1790,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             currentUsername: widget.currentUsername,
           ),
           const Center(child: Text("Вкладка 'Чати' в розробці.")),
-          const Center(child: Text("Вкладка 'Конференції' в розробці.")),
+          VideoConferencingTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            courseName: _courseName,
+            currentUsername: widget.currentUsername,
+          ),
         ],
       ),
     );
@@ -2272,7 +2311,7 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
                 backgroundColor: Colors.red,
               ),
             );
-          throw e;
+          return <CourseMaterial>[];
         });
       });
   }
@@ -3588,6 +3627,227 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+class VideoConferencingTabView extends StatefulWidget {
+  final String authToken;
+  final int courseId;
+  final String courseName;
+  final String currentUsername;
+
+  const VideoConferencingTabView({
+    super.key,
+    required this.authToken,
+    required this.courseId,
+    required this.courseName,
+    required this.currentUsername,
+  });
+
+  @override
+  State<VideoConferencingTabView> createState() =>
+      _VideoConferencingTabViewState();
+}
+
+class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
+  final _controller = WebviewController();
+  final TextEditingController _roomController = TextEditingController();
+
+  bool _isWebViewInitialized = false;
+  bool _isLoading = false;
+  String? _currentRoomUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _roomController.text = 'General';
+    initPlatformState();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _roomController.dispose();
+    super.dispose();
+  }
+
+  String _generateRoomName(String input) {
+    String safeInput = input
+        .replaceAll(RegExp(r'\s+'), '-')
+        .replaceAll(RegExp(r'[^a-zA-Z0-9-]'), '');
+    if (safeInput.isEmpty) {
+      safeInput = 'room';
+    }
+    return 'teamroom-course-${widget.courseId}-$safeInput';
+  }
+
+  Future<void> initPlatformState() async {
+    if (!Platform.isWindows) {
+      setState(() {});
+      return;
+    }
+
+    try {
+      await _controller.initialize();
+      _controller.loadingState.listen((state) {
+        if (mounted) {
+          setState(() {
+            _isLoading = (state == LoadingState.loading);
+          });
+        }
+      });
+
+      if (mounted) {
+        setState(() {
+          _isWebViewInitialized = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не вдалося ініціалізувати WebView: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _joinMeeting() async {
+    if (!_isWebViewInitialized) return;
+    if (_roomController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Введіть назву кімнати'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    final String roomName = _generateRoomName(_roomController.text.trim());
+
+    final String newUrl = 'https://nek1tarch.local:8443/$roomName'
+        '#config.prejoinPageEnabled=false'
+        '&config.startWithAudioMuted=false'
+        '&config.startWithVideoMuted=false'
+        '&userInfo.displayName=${Uri.encodeComponent(widget.currentUsername)}'
+        '&config.toolbarButtons=["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","invite","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help","mute-everyone"]';
+
+    if (newUrl != _currentRoomUrl) {
+      await _controller.loadUrl(newUrl);
+      setState(() {
+        _currentRoomUrl = newUrl;
+      });
+    }
+  }
+
+  Widget buildContent() {
+    if (!Platform.isWindows) {
+      return const Center(
+        child: Text(
+          'Відеоконференції не підтримуються на цій десктопній платформі.',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (!_isWebViewInitialized) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 10),
+            Text('Ініціалізація WebView...'),
+          ],
+        ),
+      );
+    }
+
+    if (_currentRoomUrl == null) {
+      return const Center(
+        child: Text(
+          'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Webview(_controller),
+        if (_isLoading)
+          Container(
+            color: Colors.black12,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _roomController,
+                  decoration: const InputDecoration(
+                    labelText: 'Назва кімнати',
+                    hintText: 'Наприклад, "General" або "Lecture 1"',
+                    border: OutlineInputBorder(),
+                  ),
+                  enabled: _isWebViewInitialized && !_isLoading,
+                  onSubmitted: (_) => _joinMeeting(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: (_isWebViewInitialized && !_isLoading)
+                      ? _joinMeeting
+                      : null,
+                  icon: _isLoading
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Icon(Icons.video_call_outlined),
+                  label: Text(_isLoading ? 'Завантаження...' : 'Приєднатися'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
+                color: Colors.grey.shade100,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: buildContent(),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

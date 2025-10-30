@@ -1,30 +1,28 @@
 import 'package:file_picker/file_picker.dart';
-
 import 'package:http/http.dart' as http;
-
 import 'dart:convert';
 
-
 class PCloudService {
-  final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
+  //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
+  final String _apiBaseUrl = "http://localhost:8080/api";
 
   Future<String> uploadFileAndGetPublicLink({
     required PlatformFile file,
-
     required String authToken,
-
     required String purpose,
   }) async {
     final uploadLinkData = await _getUploadLink(authToken, purpose);
-
-    final uploadUrl = uploadLinkData['link'];
+    String? uploadUrl = uploadLinkData['link'];
 
     if (uploadUrl == null) {
       throw Exception("Сервер не повернув посилання для завантаження.");
     }
-
+    if (uploadUrl.contains("&path=null")) {
+      print("--- WARNING: Backend returned 'path=null'. Fixing in client...");
+      uploadUrl = uploadUrl.replaceAll("&path=null", "&folderid=0");
+      print("--- Fixed URL for upload: $uploadUrl");
+    }
     final fileId = await _uploadFileToCloud(uploadUrl, file);
-
     if (fileId == null) {
       throw Exception(
         "Не вдалося отримати fileId після завантаження на PCloud.",
@@ -41,9 +39,9 @@ class PCloudService {
   }
 
   Future<Map<String, dynamic>> _getUploadLink(
-    String token,
-    String purpose,
-  ) async {
+      String token,
+      String purpose,
+      ) async {
     final uri = Uri.parse(
       '$_apiBaseUrl/cloud-storage/get-upload-link?purpose=$purpose',
     );
@@ -94,7 +92,8 @@ class PCloudService {
         final data = jsonDecode(response.body);
 
         if (data.containsKey('result') && data['result'] != 0) {
-          final pCloudError = data['error'] ?? 'Невідома помилка PCloud (result != 0)';
+          final pCloudError =
+              data['error'] ?? 'Невідома помилка PCloud (result != 0)';
           print("--- PCloud API Error (result != 0): $pCloudError");
           throw Exception('Помилка PCloud API: $pCloudError');
         }
@@ -106,9 +105,9 @@ class PCloudService {
             return fileIdNum.toString();
           }
         }
-        print("--- PCloud upload response structure unexpected (missing metadata or fileid)");
+        print(
+            "--- PCloud upload response structure unexpected (missing metadata or fileid)");
         throw Exception('Не вдалося отримати fileId з відповіді PCloud.');
-
       } catch (e) {
         print("--- Error processing PCloud response: $e");
         if (e is Exception) {

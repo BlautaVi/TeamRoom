@@ -97,7 +97,7 @@ BEGIN
             VALUE "OriginalFilename", "kurs.exe" "\0"
             VALUE "ProductName", "kurs" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
-        END
+            VALUE "MimeTypes", "application/pdf;AUDIO/WAVE;AUDIO/MPEG;VIDEO/MPEG;VIDEO/MP4;VIDEO/AVI;VIDEO/QUICKTIME;MICROPHONE;WEBCAM"        END
     END
     BLOCK "VarFileInfo"
     BEGIN

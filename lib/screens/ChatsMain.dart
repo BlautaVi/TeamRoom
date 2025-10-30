@@ -122,7 +122,8 @@ class _ChatsMainState extends State<ChatsMain> {
   void _connectToStomp() {
     _stompClient = StompClient(
       config: StompConfig(
-        url: 'wss://team-room-back.onrender.com/ws/websocket',
+       // url: 'wss://team-room-back.onrender.com/ws/websocket',
+        url: 'ws://localhost:8080/ws/websocket',
         onConnect: _onStompConnect,
         onWebSocketError: (dynamic error) {
           print("WebSocket Error: $error");

@@ -4,6 +4,8 @@ import 'dart:convert';
 
 import 'package:kurs/screens/Profile.dart';
 
+import 'auth.dart';
+
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
 
@@ -19,54 +21,65 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _isPasswordVisible = false;
 
   Future<void> _register() async {
-    if (_formKey.currentState!.validate()) {
-      final String username = _usernameController.text.trim();
-      final String email = _emailController.text.trim();
-      final String password = _passwordController.text.trim();
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-      final url = Uri.parse("https://team-room-back.onrender.com/api/auth/register");
-      try {
-        final response = await http.post(
-          url,
-          headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "username": username,
-            "email": email,
-            "password": password,
-          }),
-        );
-        if (response.statusCode == 201 || response.statusCode == 200) {
-          print("Успішна реєстрація: ${response.body}");
-          final data = jsonDecode(response.body);
-          final String authToken = data['jwt'];
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => ProfileScreen(authToken: authToken)),
-            );
-          }
-        } else {
-          print("Помилка реєстрації: ${response.body}");
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Помилка реєстрації. Спробуйте інші дані."),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } catch (e) {
-        print("Помилка підключення: $e");
+    final String username = _usernameController.text.trim();
+    final String email = _emailController.text.trim();
+    final String password = _passwordController.text.trim();
+    final url = Uri.parse("http://localhost:8080/api/auth/register");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "username": username,
+          "email": email,
+          "password": password,
+        }),
+      );
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        print("Успішна реєстрація: ${response.body}");
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Помилка з'єднання з сервером"),
-              backgroundColor: Colors.red,
+              content: Text("Реєстрація успішна! Тепер можете увійти."),
+              backgroundColor: Colors.green,
             ),
           );
+          Navigator.of(context).pop();
+
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => LoginScreen()),
+          );
+        }
+      } else {
+        print("Помилка реєстрації (статус ${response.statusCode}): ${response.body}");
+        if (mounted) {
+          _showErrorSnackBar("Помилка реєстрації. Можливо, такий користувач вже існує.");
         }
       }
+    } catch (e) {
+      print("Помилка підключення: $e");
+      if (mounted) {
+        _showErrorSnackBar("Помилка з'єднання з сервером. Перевірте інтернет.");
+      }
     }
+  }
+
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
@@ -74,7 +87,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     const Color rightPanelColor = Color(0xFF62567E);
     const Color buttonBackgroundColor = Color(0xFFB6A5DE);
     const Color hintTextColor = Color(0xFF62567E);
-    const Color linkTextColor = Color(0xffffffffa);
+    const Color linkTextColor = Color(0xAAFFFFFF);
 
     return Scaffold(
       body: Row(

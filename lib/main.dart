@@ -1,11 +1,13 @@
 import 'dart:io' show HttpOverrides;
-
 import 'package:flutter/material.dart';
 import 'package:kurs/screens/auth.dart';
 import 'http_overrides.dart';
+import 'dart:io';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
+
   runApp(const MyApp());
 }
 
