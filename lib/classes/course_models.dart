@@ -195,7 +195,7 @@ class AssignmentResponse {
     String author =
         json['authorUsername'] ?? json['author_username'] ?? 'unknown_author';
     return AssignmentResponse(
-      id: json['id'] ?? 0,
+      id: json['id'] ?? json['responseId'] ?? 0,
       assignmentId: json['assignment_id'] ?? json['assignmentId'] ?? 0,
       authorUsername: author,
       isReturned: json['is_returned'] ?? json['isReturned'] ?? false,

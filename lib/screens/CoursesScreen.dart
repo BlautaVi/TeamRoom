@@ -231,15 +231,18 @@ class CourseService {
     }
   }
 
+  // ❗️ ВИПРАВЛЕНО 1: `deleteMember` тепер використовує query-параметри згідно з API
   Future<void> deleteMember(String token, int courseId, String username) async {
+    // Створюємо URI з query-параметром 'username'
+    final uri = Uri.parse('$_apiBaseUrl/course/$courseId/members')
+        .replace(queryParameters: {'username': username});
+
+    // Виконуємо DELETE-запит БЕЗ тіла (body)
     final response = await http.delete(
-      Uri.parse('$_apiBaseUrl/course/$courseId/members'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'username': username}),
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
     );
+
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw _handleErrorResponse(response, 'Не вдалося видалити учасника');
     }
@@ -595,29 +598,129 @@ class CourseService {
     final uri = Uri.parse(
       '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses',
     );
-    final response = await http.post(
-      uri,
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({'media': mediaList}),
-    );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      try {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map && decoded.containsKey('id') && decoded['id'] is num) {
-          return (decoded['id'] as num).toInt();
-        } else {
-          print("Warning: Assignment response created (status ${response.statusCode}) but no ID found in response body: ${response.body}");
-          return 0;
+    Future<AssignmentResponse?> findExistingWithRetries() async {
+      AssignmentResponse? existing;
+      int delayMs = 200;
+      for (int attempt = 0; attempt < 8 && existing == null; attempt++) {
+        if (attempt > 0) await Future.delayed(Duration(milliseconds: delayMs));
+        delayMs = (delayMs * 2).clamp(200, 2000);
+        try {
+          existing = await getMyAssignmentResponse(token, courseId, assignmentId);
+        } catch (_) {
+          existing = null;
         }
-      } catch (e) {
-        throw Exception('Failed to parse response ID after submitting: $e');
+        if (existing == null) {
+          try {
+            final myAll = await getAllMyAssignmentResponses(token, courseId);
+            existing = myAll.firstWhere(
+              (r) => r.assignmentId == assignmentId,
+              orElse: () => AssignmentResponse(
+                id: 0,
+                assignmentId: -1,
+                authorUsername: '',
+                isReturned: false,
+                isGraded: false,
+                media: const [],
+              ),
+            );
+            if (existing.assignmentId == -1) existing = null;
+          } catch (_) {
+            existing = null;
+          }
+        }
+      }
+      return existing;
+    }
+
+    Future<int> create() async {
+      final response = await http.post(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'media': mediaList}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        try {
+          final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+          if (decoded is Map && decoded.containsKey('id') && decoded['id'] is num) {
+            return (decoded['id'] as num).toInt();
+          } else {
+            print(
+                "Warning: Assignment response created (status ${response.statusCode}) but no ID found in response body: ${response.body}");
+            return 0;
+          }
+        } catch (e) {
+          throw Exception('Failed to parse response ID after submitting: $e');
+        }
+      } else {
+        throw _handleErrorResponse(response, 'Не вдалося надіслати відповідь');
+      }
+    }
+
+    // Попередня перевірка існуючої відповіді, щоб уникнути гонок
+    try {
+      final existingPre = await findExistingWithRetries();
+      if (existingPre != null) {
+        if (existingPre.isGraded == true) {
+          throw Exception('Відповідь вже оцінена — перездача неможлива.');
+        }
+        await deleteAssignmentResponse(token, courseId, assignmentId, existingPre.id);
+      }
+    } catch (_) {
+      // якщо не змогли перевірити/видалити — пробуємо все одно створити, логіку дублюємо у catch нижче
+    }
+
+    try {
+      return await create();
+    } catch (e) {
+      final message = e.toString();
+      final looksLikeDuplicate =
+          message.contains('already exists') || message.contains('(Статус: 409)') || message.contains('(Статус: 400)');
+
+      if (!looksLikeDuplicate) rethrow;
+
+      final existing = await findExistingWithRetries();
+      if (existing == null) {
+        // Не вдалося знайти існуючу відповідь — повертаємо первісну помилку
+        rethrow;
+      }
+      if (existing.isGraded == true) {
+        throw Exception('Відповідь вже оцінена — перездача неможлива.');
+      }
+      // Видаляємо існуючу та створюємо заново
+      await deleteAssignmentResponse(token, courseId, assignmentId, existing.id);
+      return await create();
+    }
+  }
+
+  Future<List<AssignmentResponse>> getAllMyAssignmentResponses(
+    String token,
+    int courseId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/course/$courseId/assignments/my-responses'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is List) {
+        return decoded.map((r) => AssignmentResponse.fromJson(r)).toList();
+      } else if (decoded is Map && decoded['responses'] is List) {
+        return (decoded['responses'] as List)
+            .map((r) => AssignmentResponse.fromJson(r))
+            .toList();
+      } else {
+        throw Exception('Неправильний формат списку моїх відповідей.');
       }
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося надіслати відповідь');
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити мої відповіді в курсі',
+      );
     }
   }
 
@@ -1768,28 +1871,40 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       ),
       body: _isLoadingRole
           ? const Center(child: CircularProgressIndicator())
+      // ❗️ ВИПРАВЛЕНО 2: Очищено TabBarView від помилок копіювання
           : TabBarView(
         controller: _tabController,
         children: [
-          const Center(child: Text("Вкладка 'Стрічка' в розробці.")),
+          // 1. Стрічка
+          FeedTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            currentUserRole: _currentUserRole,
+            currentUsername: widget.currentUsername,
+          ),
+          // 2. Завдання
           AssignmentsTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
+          // 3. Матеріали
           MaterialsTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
           ),
+          // 4. Учасники
           MembersTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
+          // 5. Чати
           const Center(child: Text("Вкладка 'Чати' в розробці.")),
+          // 6. Конференції
           VideoConferencingTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
@@ -1978,7 +2093,7 @@ class _MembersTabViewState extends State<MembersTabView> {
     CourseRole selectedRole = member.role;
     final currentContext = context;
 
-    final newRole = await showDialog<CourseRole>(
+    await showDialog<void>(
       context: currentContext,
       builder: (dialogContext) {
         bool isSaving = false;
@@ -3848,6 +3963,308 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// -----------------------------------------------------------------
+// ⬇️ КОД ДЛЯ ВКЛАДКИ "СТРІЧКА"
+// -----------------------------------------------------------------
+
+enum FeedItemType { assignment, material }
+
+class FeedItem {
+  final FeedItemType type;
+  final DateTime sortDate;
+  final Assignment? assignment;
+  final CourseMaterial? material;
+
+  FeedItem({
+    required this.type,
+    required this.sortDate,
+    this.assignment,
+    this.material,
+  });
+}
+
+class FeedTabView extends StatefulWidget {
+  final String authToken;
+  final int courseId;
+  final CourseRole currentUserRole;
+  final String currentUsername;
+
+  const FeedTabView({
+    super.key,
+    required this.authToken,
+    required this.courseId,
+    required this.currentUserRole,
+    required this.currentUsername,
+  });
+
+  @override
+  State<FeedTabView> createState() => _FeedTabViewState();
+}
+
+class _FeedTabViewState extends State<FeedTabView> {
+  late Future<List<FeedItem>> _feedFuture;
+  final CourseService _courseService = CourseService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFeed();
+  }
+  void _loadFeed() {
+    if (mounted) {
+      setState(() {
+        _feedFuture = _fetchAndCombineFeed();
+      });
+    }
+  }
+  Future<List<FeedItem>> _fetchAndCombineFeed() async {
+    try {
+      final results = await Future.wait([
+        _courseService.getAssignments(widget.authToken, widget.courseId),
+        _courseService.getCourseMaterials(widget.authToken, widget.courseId),
+      ]);
+
+      final List<FeedItem> combinedList = [];
+
+      final List<Assignment> assignments = results[0] as List<Assignment>;
+      for (var a in assignments) {
+        combinedList.add(FeedItem(
+          type: FeedItemType.assignment,
+          // Використовуємо дедлайн, якщо є; інакше упорядковуємо за ID
+          sortDate: a.deadline ?? DateTime.fromMillisecondsSinceEpoch(a.id * 1000),
+          assignment: a,
+        ));
+      }
+
+      final List<CourseMaterial> materials = results[1] as List<CourseMaterial>;
+      for (var m in materials) {
+        combinedList.add(FeedItem(
+          type: FeedItemType.material,
+          // У моделі немає createdAt; сортуємо за ID як стабільний сурогат часу
+          sortDate: DateTime.fromMillisecondsSinceEpoch(m.id * 1000),
+          material: m,
+        ));
+      }
+
+      combinedList.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+
+      return combinedList;
+    } catch (e) {
+      print("Помилка завантаження стрічки: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Не вдалося завантажити стрічку: $e'),
+          backgroundColor: Colors.red,
+        ));
+      }
+      return [];
+    }
+  }
+
+  Future<void> _refreshFeed() async {
+    _loadFeed();
+    await _feedFuture;
+  }
+  void _handleAction() {
+    _loadFeed();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: FutureBuilder<List<FeedItem>>(
+        future: _feedFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Помилка завантаження стрічки: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          final items = snapshot.data ?? [];
+
+          if (items.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text('У стрічці курсу поки що нічого немає.'),
+                  const SizedBox(height: 10),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Оновити'),
+                    onPressed: _refreshFeed,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refreshFeed,
+            child: ListView.builder(
+              padding: const EdgeInsets.all(12),
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final item = items[index];
+
+                switch (item.type) {
+                  case FeedItemType.assignment:
+                    return _AssignmentFeedTile(
+                      assignment: item.assignment!,
+                      authToken: widget.authToken,
+                      courseId: widget.courseId,
+                      currentUserRole: widget.currentUserRole,
+                      currentUsername: widget.currentUsername,
+                      onAction: _handleAction,
+                    );
+                  case FeedItemType.material:
+                    return _MaterialFeedTile(
+                      material: item.material!,
+                      authToken: widget.authToken,
+                      courseId: widget.courseId,
+                      canManage: widget.currentUserRole == CourseRole.OWNER ||
+                          widget.currentUserRole == CourseRole.PROFESSOR,
+                      onAction: _handleAction,
+                    );
+                }
+              },
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+class _MaterialFeedTile extends StatelessWidget {
+  final CourseMaterial material;
+  final String authToken;
+  final int courseId;
+  final bool canManage;
+  final VoidCallback onAction;
+
+  const _MaterialFeedTile({
+    required this.material,
+    required this.authToken,
+    required this.courseId,
+    required this.canManage,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+          foregroundColor: Theme.of(context).primaryColor,
+          child: const Icon(Icons.article_outlined, size: 22),
+        ),
+        title: Text(material.topic, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          "Новий матеріал",
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+        ),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+        onTap: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MaterialDetailScreen(
+                authToken: authToken,
+                courseId: courseId,
+                materialId: material.id,
+                canManage: canManage,
+              ),
+            ),
+          );
+          if (result == true) {
+            onAction();
+          }
+        },
+      ),
+    );
+  }
+}
+
+class _AssignmentFeedTile extends StatelessWidget {
+  final Assignment assignment;
+  final String authToken;
+  final int courseId;
+  final CourseRole currentUserRole;
+  final String currentUsername;
+  final VoidCallback onAction;
+
+  const _AssignmentFeedTile({
+    required this.assignment,
+    required this.authToken,
+    required this.courseId,
+    required this.currentUserRole,
+    required this.currentUsername,
+    required this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isPastDue =
+        assignment.deadline != null && assignment.deadline!.isBefore(DateTime.now());
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isPastDue
+              ? Colors.grey.shade200
+              : Colors.teal.withOpacity(0.1),
+          foregroundColor: isPastDue
+              ? Colors.grey.shade700
+              : Colors.teal.shade700,
+          child: const Icon(Icons.assignment_outlined, size: 22),
+        ),
+        title: Text(assignment.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(
+          assignment.deadline != null
+              ? "Нове завдання · Дедлайн: ${DateFormat('dd.MM.yyyy \'o\' HH:mm', 'uk_UA').format(assignment.deadline!)}"
+              : "Нове завдання · Без дедлайну",
+          style: TextStyle(
+              fontSize: 12,
+              color: isPastDue ? Colors.red.shade700 : Colors.grey.shade600
+          ),
+        ),
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
+        onTap: () async {
+          final result = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AssignmentDetailScreen(
+                authToken: authToken,
+                courseId: courseId,
+                assignmentId: assignment.id,
+                currentUserRole: currentUserRole,
+                currentUsername: currentUsername,
+              ),
+            ),
+          );
+          if (result == true) {
+            onAction();
+          }
+        },
       ),
     );
   }
