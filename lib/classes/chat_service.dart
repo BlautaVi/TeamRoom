@@ -97,11 +97,25 @@ class ChatService {
   Future<List<ChatMessage>> getMessages(
       String token,
       int chatId,
-      int page,
+      int limitBefore,
+          {int? messageId,
+        int? limitAfter}
       ) async {
-    final int size = 20;
+
+    final queryParameters = {
+      'limitBefore': limitBefore.toString(),
+      if (messageId != null) 'messageId': messageId.toString(),
+      if (limitAfter != null) 'limitAfter': limitAfter.toString(),
+    };
+
+    final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/messages').replace(
+      queryParameters: queryParameters,
+    );
+
+    print("ChatService: Fetching messages: $uri");
+
     final response = await http.get(
-      Uri.parse('$_apiBaseUrl/chats/$chatId/messages?page=$page&size=$size'),
+      uri,
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {

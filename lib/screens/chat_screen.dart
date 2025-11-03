@@ -10,7 +10,6 @@ import 'package:kurs/classes/chat_service.dart';
 import 'chat_members_screen.dart';
 import 'package:kurs/screens/CoursesScreen.dart';
 import 'package:kurs/classes/course_models.dart';
-// 💡 ДОДАНО: Імпорт для екрану завдань
 import 'package:kurs/screens/assignment_screens.dart';
 
 
@@ -43,7 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
   String _error = '';
   bool _isLoadingMore = false;
-  int _currentPage = 1;
+  final int _messagePageSize = 20;
   bool _hasMoreMessages = true;
   final List<ChatMessage> _messages = [];
   late ChatMember _myMembership;
@@ -92,12 +91,21 @@ class _ChatScreenState extends State<ChatScreen> {
       await _chatService.getMyChatMembership(widget.authToken, widget.chatId, widget.currentUsername);
 
       final messages =
-      await _chatService.getMessages(widget.authToken, widget.chatId, 1);
+      await _chatService.getMessages(
+        widget.authToken,
+        widget.chatId,
+        _messagePageSize,
+        messageId: null,
+        limitAfter: 0,
+      );
+
       if (mounted) {
+        _messages.clear();
         _messages.addAll(messages.reversed);
-        _currentPage = 1;
-        if (messages.length < 20) {
+        if (messages.length < _messagePageSize) {
           _hasMoreMessages = false;
+        } else {
+          _hasMoreMessages = true;
         }
       }
 
@@ -111,20 +119,32 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Помилка завантаження чату: $e';
+          _error = 'Помилка завантаження чату: ${e.toString().replaceFirst("Exception: ", "")}';
         });
       }
     }
   }
 
   Future<void> _loadMoreMessages() async {
-    print("Loading more messages, page ${_currentPage + 1}");
+    if (_messages.isEmpty) {
+      setState(() {
+        _isLoadingMore = false;
+        _hasMoreMessages = false;
+      });
+      return;
+    }
+
+    final int oldestMessageId = _messages.first.id;
+
+    print("Loading more messages, before ID $oldestMessageId");
     setState(() => _isLoadingMore = true);
     try {
       final newMessages = await _chatService.getMessages(
         widget.authToken,
         widget.chatId,
-        _currentPage + 1,
+        _messagePageSize,
+        messageId: oldestMessageId,
+        limitAfter: 0,
       );
 
       if (!mounted) return;
@@ -137,7 +157,6 @@ class _ChatScreenState extends State<ChatScreen> {
       } else {
         setState(() {
           _messages.insertAll(0, newMessages.reversed);
-          _currentPage++;
           _isLoadingMore = false;
         });
       }
@@ -146,13 +165,14 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() => _isLoadingMore = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Помилка завантаження старих повідомлень: $e'),
+            content: Text('Помилка завантаження старих повідомлень: ${e.toString().replaceFirst("Exception: ", "")}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
   }
+
 
   Future<void> _showDeleteChatDialog() async {
     final bool? confirm = await showDialog(
@@ -495,6 +515,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _handleNewMessage(ChatMessage message) {
+    if (_messages.any((m) => m.id == message.id)) return;
+
     if (message.username == widget.currentUsername) {
       _messages.removeWhere((m) =>
       m.isSending &&
@@ -503,6 +525,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     _messages.add(message);
+    _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
     if (message.username == widget.currentUsername) {
       Timer(
@@ -567,7 +590,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _sendStopTyping();
 
     final tempMessage = ChatMessage(
-      id: 0,
+      id: 0 - DateTime.now().millisecondsSinceEpoch,
       chatId: widget.chatId,
       username: widget.currentUsername,
       content: content,
@@ -629,6 +652,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messages.isEmpty || widget.stompClient.connected != true) return;
 
     final int lastMessageId = _messages.last.id;
+    if (lastMessageId <= 0) return; // Не відправляти для оптимістичних повідомлень
+
     if (_myMembership.lastReadMessageId < lastMessageId) {
       widget.stompClient.send(
         destination: '/app/chat/${widget.chatId}/read',
@@ -671,7 +696,7 @@ class _MessageBubble extends StatelessWidget {
       children: [
         GestureDetector(
           onLongPress: () {
-            if (canDelete) onDelete();
+            if (canDelete && !message.isSending) onDelete();
           },
           child: Container(
             constraints: BoxConstraints(
@@ -819,12 +844,21 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
 
   void _loadAssignmentAndRole() {
     _assignmentFuture = Future(() async {
-      final members = await CourseService().getCourseMembers(widget.authToken, widget.courseId);
-      final myMember = members.firstWhere((m) => m.username == widget.currentUsername, orElse: () => CourseMember(username: '', role: CourseRole.VIEWER));
-      if (mounted) {
-        setState(() {
-          _courseRole = myMember.role;
-        });
+      try {
+        final members = await CourseService().getCourseMembers(widget.authToken, widget.courseId);
+        final myMember = members.firstWhere((m) => m.username == widget.currentUsername, orElse: () => CourseMember(username: '', role: CourseRole.VIEWER));
+        if (mounted) {
+          setState(() {
+            _courseRole = myMember.role;
+          });
+        }
+      } catch (e) {
+        print("Error fetching course role in chat: $e");
+        if(mounted) {
+          setState(() {
+            _courseRole = CourseRole.VIEWER;
+          });
+        }
       }
       return CourseService().getAssignmentDetails(
         widget.authToken,
