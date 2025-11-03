@@ -50,3 +50,7 @@
 ```bash
 git clone https://github.com/BlautaVi/TeamRoom.git
 cd TeamRoom
+🔹Встановіть залежності
+flutter pub get
+🔹 Запустіть додаток
+flutter run -d windows
