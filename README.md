@@ -40,7 +40,7 @@
 | **API** | `http` package (RESTful API) |
 | **Real-time** | `stomp_dart_client` (WebSocket) |
 | **File Handling** | `file_picker`, custom `PCloudService` |
-| **Video** | `webview_windows` (вбудований Jitsi/Zoom/WebRTC) |
+| **Video** | `webview_windows` (вбудований Jitsi) |
 
 ---
 
