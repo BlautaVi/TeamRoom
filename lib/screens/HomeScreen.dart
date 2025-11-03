@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:kurs/screens/Profile.dart';
 import 'package:kurs/screens/ChatsMain.dart';
-
 import 'CoursesScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String authToken;
   final String username;
-  
+
   const HomeScreen({
-    super.key, 
+    super.key,
     required this.authToken,
     required this.username,
   });
@@ -20,35 +19,32 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _mainPageIndex = 0;
-
-  int? _selectedChatIndex;
   late final List<Widget> _screens;
-  bool _showProfileIcon = true;
 
-  void _handleChatSelected(int? index) {
-    setState(() {
-      _selectedChatIndex = index;
-    });
-  }
   @override
   void initState() {
     super.initState();
     _screens = [
+      // 0. Чати
       ChatsMain(
         authToken: widget.authToken,
-        onChatSelected: (index) {},
-        onChatViewChange: (isChatOpen) {
-          setState(() {
-            _showProfileIcon = !isChatOpen;
-          });
-        },
+        currentUsername: widget.username,
       ),
-      CoursesScreen(authToken: widget.authToken, currentUsername: widget.username),
+      // 1. Курси
+      CoursesScreen(
+        authToken: widget.authToken,
+        currentUsername: widget.username,
+      ),
+      // 2. Відео
       const Center(
-          child: Text('Сторінка Відео',
-              style: TextStyle(fontSize: 24, color: Color(0xFF62567E)))),
+        child: Text(
+          'Сторінка Відео',
+          style: TextStyle(fontSize: 24, color: Color(0xFF62567E)),
+        ),
+      ),
     ];
   }
+
   Widget _buildNavIcon(IconData icon, bool isSelected) {
     const Color selectedColor = Colors.white;
     const Color unselectedColor = Color(0xFFD2CDE4);
@@ -70,14 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF7C6BA3);
     const Color indicatorColor = Color(0xFF62567E);
-    if (_selectedChatIndex != null) {
-      return _buildChatConversationView();
-    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Row(
@@ -101,8 +94,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 label: const Text(''),
               ),
               NavigationRailDestination(
-                icon: _buildNavIcon(Icons.collections_bookmark_outlined, _mainPageIndex == 1),
-                selectedIcon: _buildNavIcon(Icons.collections_bookmark_rounded, true),
+                icon: _buildNavIcon(
+                    Icons.collections_bookmark_outlined, _mainPageIndex == 1),
+                selectedIcon:
+                _buildNavIcon(Icons.collections_bookmark_rounded, true),
                 label: const Text(''),
               ),
               NavigationRailDestination(
@@ -112,75 +107,43 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
+          // --- 💡 ПОЧАТОК ВИПРАВЛЕННЯ ДИЗАЙНУ ---
           Expanded(
-            child: Stack(
+            child: _mainPageIndex == 0
+            // Для вкладки "Чати" (індекс 0) просто показуємо екран ChatsMain.
+            // Він сам керує своїм AppBar.
+                ? _screens[0]
+            // Для всіх інших вкладок (1 і 2) використовуємо Stack,
+            // щоб показати кнопку профілю поверх.
+                : Stack(
               children: [
-                _screens[_mainPageIndex],
-                if (_showProfileIcon)
-                  Align(
-                    alignment: Alignment.topRight,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: IconButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ProfileScreen(authToken: widget.authToken),
-                            ),
-                          );
-                        },
-                        icon: const Icon(Icons.account_circle, color: primaryColor, size: 60),
-                        tooltip: 'Профіль',
-                      ),
+                _screens[_mainPageIndex], // Курси або Відео
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                ProfileScreen(authToken: widget.authToken),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.account_circle,
+                          color: primaryColor, size: 60),
+                      tooltip: 'Профіль',
                     ),
                   ),
+                ),
               ],
             ),
           ),
+          // --- 💡 КІНЕЦЬ ВИПРАВЛЕННЯ ДИЗАЙНУ ---
         ],
       ),
     );
   }
-  Widget _buildChatConversationView() {
-    const Color primaryColor = Color(0xFF62567E);
-    const Color bottomNavBarColor = Color(0xFF7C6BA3);
-
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: primaryColor),
-          onPressed: () => _handleChatSelected(null),
-        ),
-        title: Text(
-          'Юзер ${_selectedChatIndex! + 1}',
-          style: const TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: const Center(
-        child: Text('Тут будуть повідомлення чату', style: TextStyle(fontSize: 18, color: Colors.grey)),
-      ),
-      bottomNavigationBar: Container(
-        height: 60,
-        color: bottomNavBarColor,
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                IconButton(icon: const Icon(Icons.chat_bubble_outline, color: Colors.white), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.bookmark_border, color: Colors.white), onPressed: () {}),
-                IconButton(icon: const Icon(Icons.add_box_outlined, color: Colors.white), onPressed: () {}),
-              ],
-            ),
-            IconButton(icon: const Icon(Icons.person_outline, color: Colors.white), onPressed: () {}),
-          ],
-        ),
-      ),
-    );
-  }
 }
-

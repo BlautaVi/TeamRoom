@@ -13,6 +13,9 @@ import 'package:intl/intl.dart';
 import '../classes/course_models.dart';
 import 'package:webview_windows/webview_windows.dart';
 import 'dart:io' show Platform;
+import 'package:kurs/classes/chat_models.dart';
+import 'package:kurs/classes/chat_service.dart';
+import 'chat_screen.dart';
 
 class CourseService {
   //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
@@ -1871,40 +1874,42 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       ),
       body: _isLoadingRole
           ? const Center(child: CircularProgressIndicator())
-      // ❗️ ВИПРАВЛЕНО 2: Очищено TabBarView від помилок копіювання
           : TabBarView(
         controller: _tabController,
         children: [
-          // 1. Стрічка
-          FeedTabView(
+       FeedTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
-          // 2. Завдання
           AssignmentsTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
-          // 3. Матеріали
           MaterialsTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
           ),
-          // 4. Учасники
           MembersTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
-          // 5. Чати
-          const Center(child: Text("Вкладка 'Чати' в розробці.")),
-          // 6. Конференції
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Text(
+                "Чати курсу не підтримуються. \nДоступні лише загальні групові чати на головній вкладці 'Чати'.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 16, height: 1.5),
+              ),
+            ),
+          ),
           VideoConferencingTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
