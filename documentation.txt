@@ -1,0 +1,7101 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TeamRoom API",
+    "description": "API документація для додатку TeamRoom.",
+    "version": "v1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Аутентифікація",
+      "description": "Ендпоїнти для реєстрації та входу/отримання JWT-токенів."
+    },
+    {
+      "name": "Аутентифікація"
+    },
+    {
+      "name": "Базові Тести Доступу"
+    },
+    {
+      "name": "Базові Тести Доступу",
+      "description": "Прості ендпоїнти для тестування публічного та захищеного доступу."
+    },
+    {
+      "name": "Користувач"
+    },
+    {
+      "name": "Користувач",
+      "description": "Операції, пов'язані з поточним аутентифікованим користувачем."
+    },
+    {
+      "name": "Профіль користувача",
+      "description": "Ендпоїнти для створення, отримання та оновлення профілю користувача."
+    },
+    {
+      "name": "Профіль користувача"
+    },
+    {
+      "name": "Хмарне сховище"
+    },
+    {
+      "name": "Хмарне сховище",
+      "description": "Ендпоїнти для взаємодії з хмарним сховищем файлів (pCloud)."
+    },
+    {
+      "name": "Курси",
+      "description": "Ендпоїнти для керування курсами та їх учасниками."
+    },
+    {
+      "name": "Курси"
+    },
+    {
+      "name": "Матеріали курсу",
+      "description": "Ендпоїнти для керування навчальними матеріалами в межах курсу."
+    },
+    {
+      "name": "Матеріали курсу"
+    },
+    {
+      "name": "Завдання курсу",
+      "description": "Ендпоїнти для керування завданнями в межах курсу."
+    },
+    {
+      "name": "Завдання курсу"
+    },
+    {
+      "name": "Завдання - керування завданнями курсу"
+    },
+    {
+      "name": "Завдання, медіа - керування медіа в завданнях курсу"
+    },
+    {
+      "name": "Завдання, відповіді - керування відповідями в завданнях курсу"
+    }
+  ],
+  "paths": {
+    "/api/profile": {
+      "get": {
+        "tags": [
+          "Профіль користувача"
+        ],
+        "summary": "Отримати профіль поточного користувача.",
+        "description": "Повертає дані профілю для аутентифікованого користувача.",
+        "operationId": "getMyProfile",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Профіль успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Профіль для поточного користувача не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Профіль користувача"
+        ],
+        "summary": "Повністю оновити профіль поточного користувача.",
+        "description": "Замінює всі дані профілю на нові. Поля, які не передані (напр. lastName), будуть очищені (стануть null).",
+        "operationId": "putProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Профіль успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Профіль для оновлення не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Профіль користувача"
+        ],
+        "summary": "Створити профіль для поточного користувача.",
+        "description": "Створює запис профілю (ім'я, біографія, фото), пов'язаний з аутентифікованим користувачем.",
+        "operationId": "createProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації даних.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Профіль для цього користувача вже існує.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Профіль успішно створено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Профіль користувача"
+        ],
+        "summary": "Частково оновити профіль поточного користувача.",
+        "description": "Оновлює лише передані в запиті поля профілю. Поля, які не передані, залишаться без змін.",
+        "operationId": "patchProfile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Профіль успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Профіль для оновлення не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}": {
+      "get": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Отримати інформацію про курс. (Є ЗМІНИ!)",
+        "description": "Повертає деталі курсу, включаючи список учасників. Потребує ролі не нижче VIEWER.\u003Cbr\u003E!!!Зміни:\n 1) Добавив поле для виведення к-сті користувачів;",
+        "operationId": "getCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено (недостатньо прав).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Дані курсу успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Повністю оновити курс.",
+        "description": "Замінює дані курсу на нові. Потребує ролі не нижче PROFESSOR.",
+        "operationId": "putCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutCourseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutCourseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Видалити курс.",
+        "description": "Повністю видаляє курс та всі пов'язані з ним дані. Потребує ролі OWNER.",
+        "operationId": "deleteCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCourseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Частково оновити курс.",
+        "description": "Оновлює лише передані поля курсу. Потребує ролі не нижче PROFESSOR.",
+        "operationId": "patchCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCourseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatchCourseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/members": {
+      "put": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Змінити роль учасника.",
+        "description": "Оновлює роль існуючого учасника курсу. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "changeMemberRole",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutCourseMemberRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка (користувач не є учасником курсу).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Роль учасника змінено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutCourseMemberRoleResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Додати учасника до курсу.",
+        "description": "Додає користувача до курсу з вказаною роллю. Потребує ролі не нижче LEADER. Курс повинний бути відкритим.",
+        "operationId": "addMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCourseMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації (користувач вже в курсі / не існує).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Учасника успішно додано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddCourseMemberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Видалити учасника з курсу.",
+        "description": "Видаляє вказаного користувача зі списку учасників курсу. Потребує ролі не нижче LEADER. Курс повиннйи бути відкритим",
+        "operationId": "deleteMember",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "username",
+            "in": "query",
+            "description": "Логін користувача, якого потрібно видалити.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "student123"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Помилка (користувач не є учасником курсу).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Учасника успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCourseMemberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/materials/{materialId}": {
+      "get": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Отримати матеріал за ID.",
+        "description": "Повертає один матеріал з усіма деталями. Потребує ролі не нижче VIEWER.",
+        "operationId": "getMaterial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріал успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterialDTO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Повністю оновити матеріал.",
+        "description": "Замінює всі дані матеріалу на нові. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "putMaterial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutMaterialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріал успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PutMaterialResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Видалити матеріал.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "deleteMaterial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріал успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMaterialResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Частково оновити матеріал.",
+        "description": "Оновлює лише передані поля матеріалу. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "patchMaterial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchMaterialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріал успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatchMaterialResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Отримати завдання за ID.",
+        "description": "Потребує ролі не нижче VIEWER.",
+        "operationId": "getAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Завдання успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Повністю оновити завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "putAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Завдання успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Видалити завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "deleteAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Завдання успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Частково оновити завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "patchAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Завдання успішно оновлено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course": {
+      "get": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Отримати курси поточного користувача, але без учасників(завжди пустий список). (Є ЗМІНИ!)",
+        "description": "Повертає список всіх курсів, до яких належить аутентифікований користувач.\u003Cbr\u003E!!!Зміни:\n 1) Добавив поле для виведення к-сті користувачів;",
+        "operationId": "findAllCourses",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Список курсів отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserCoursesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Створити новий курс.",
+        "description": "Створює новий курс і автоматично робить поточного користувача його власником (OWNER).",
+        "operationId": "createCourse",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації даних.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно створено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCourseResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/open": {
+      "post": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Відкрити курс.",
+        "description": "Робить курс відкритим для приєднання нових учасників. Потребує ролі OWNER. Курс повинний бути закритим.",
+        "operationId": "openCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфлікт. Курс вже відкрито.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно відкрито.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/materials": {
+      "get": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Отримати всі матеріали курсу.",
+        "description": "Повертає список всіх матеріалів курсу. Потребує ролі не нижче VIEWER.",
+        "operationId": "getCourseMaterials",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріали курсу успішно отримано.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "materials": {
+                      "type": "array",
+                      "$ref": "#/components/schemas/MaterialDTO"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Створити новий матеріал у курсі.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "createMaterial",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу, до якого додається матеріал.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMaterialRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Матеріал успішно створено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateMaterialResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/materials/{materialId}/tags": {
+      "post": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Додати тег до матеріалу.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "addTag",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTagRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфлікт. Такий тег вже існує у матеріалі.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Тег успішно додано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddTagResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/materials/{materialId}/media": {
+      "post": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Додати медіафайл до матеріалу.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "addMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Медіафайл успішно додано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddMediaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс або матеріал не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/close": {
+      "post": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Закрити курс.",
+        "description": "Робить курс закритим, забороняючи приєднання нових учасників. Потребує ролі OWNER. Курс повинний бути відкритим.",
+        "operationId": "closeCourse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфлікт. Курс вже закрито.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Курс успішно закрито.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Отримати всі завдання курсу.",
+        "description": "Потребує ролі не нижче VIEWER.",
+        "operationId": "getCourseAssignments",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Завдання курсу успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання - керування завданнями курсу"
+        ],
+        "summary": "Створити нове завдання у курсі.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "createAssignment",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Завдання успішно створено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAssignmentResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Отримати всі відповіді на завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "getAssignmentResponses",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Список відповідей успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Надіслати відповідь на завдання.",
+        "description": "Потребує ролі не нижче STUDENT. Курс повинний бути відкритим.",
+        "operationId": "createAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssignmentResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Відповідь успішно надіслано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAssignmentResponseResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/{responseId}/return": {
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Повернути відповідь на доопрацювання.",
+        "description": "Неможливо повернути вже оцінену роботу. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "returnAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReturnAssignmentResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Відповідь успішно повернуто.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/{responseId}/return-cancel": {
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Скасувати повернення відповіді.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "returnCancelAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Повернення успішно скасовано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/{responseId}/grade": {
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Оцінити відповідь на завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "gradeAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GradeAssignmentResponseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Відповідь успішно оцінено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/{responseId}/grade-cancel": {
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Скасувати оцінку відповіді.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "cancelGradeAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Оцінку успішно скасовано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/media": {
+      "post": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, медіа - керування медіа в завданнях курсу"
+        ],
+        "summary": "Додати медіафайл до завдання.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "addMedia_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddAssignmentMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Медіафайл успішно додано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentMediaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Аутентифікація"
+        ],
+        "summary": "Зареєструвати нового користувача.",
+        "description": "Створює нового користувача з унікальним логіном та email.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації вхідних даних або некоректний JSON.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Конфлікт. Користувач з таким логіном або email вже існує.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Непередбачена помилка на сервері.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Успішна реєстрація.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Аутентифікація"
+        ],
+        "summary": "Аутентифікація користувача та отримання JWT-токена.",
+        "description": "Перевіряє облікові дані та повертає JWT-токен для доступу до захищених ресурсів.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації вхідних даних або некоректний JSON.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Непередбачена помилка на сервері.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Успішна аутентифікація. Токен повернено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Невірний логін або пароль.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/course/{id}/materials/{materialId}/media/{mediaId}": {
+      "delete": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Видалити медіафайл.",
+        "description": "Видаляє медіафайл з матеріалу. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "deleteMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "ID медіафайлу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 12
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Медіафайл видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMediaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс, матеріал або медіафайл не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Перейменувати медіафайл.",
+        "description": "Оновлює назву існуючого медіафайлу. Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "renameMedia",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "ID медіафайлу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 12
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Помилка валідації.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Медіафайл перейменовано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenameMediaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс, матеріал або медіафайл не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/media/{mediaId}": {
+      "delete": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, медіа - керування медіа в завданнях курсу"
+        ],
+        "summary": "Видалити медіафайл.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "deleteMedia_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "ID медіафайлу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Медіафайл успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentMediaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, медіа - керування медіа в завданнях курсу"
+        ],
+        "summary": "Перейменувати медіафайл.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "renameMedia_1",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "mediaId",
+            "in": "path",
+            "description": "ID медіафайлу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameAssignmentMediaRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Медіафайл успішно перейменовано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentMediaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/with-auth": {
+      "get": {
+        "tags": [
+          "Базові Тести Доступу"
+        ],
+        "summary": "Захищений доступ.",
+        "description": "Ендпоїнт доступний тільки аутентифікованим користувачам (з дійсним JWT-токеном).",
+        "operationId": "sayHelloToUsersOnly",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено. Токен дійсний, але недостатньо прав.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Непередбачена помилка на сервері.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Успішна відповідь. Повідомлення 'Hello World!' повернено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизовано. JWT-токен відсутній або недійсний.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/search": {
+      "get": {
+        "tags": [
+          "Користувач"
+        ],
+        "summary": "Шукати користувачів за частиною логіну.",
+        "description": "Повертає список усіх користувачів, чий логін містить вказаний текст. Ігнорується регістр тексту. Якщо таких користувачів немає, поверне пустий список.",
+        "operationId": "findUsersByPartialUsername",
+        "parameters": [
+          {
+            "name": "partialUsername",
+            "in": "query",
+            "description": "Частина логіну за якою потрібно шукати.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено. Недостатньо прав для виконання операції.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Користувачів успішно повернуто.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований. Потрібно надати дійсний JWT токен.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/profile/{username}": {
+      "get": {
+        "tags": [
+          "Профіль користувача"
+        ],
+        "summary": "Отримати профіль користувача за його логіном.",
+        "description": "Повертає публічні дані профілю для будь-якого користувача системи.",
+        "operationId": "getUserProfile",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Профіль успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetProfileResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Користувача або його профіль не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/no-auth": {
+      "get": {
+        "tags": [
+          "Базові Тести Доступу"
+        ],
+        "summary": "Публічний доступ.",
+        "description": "Ендпоїнт доступний будь-кому без JWT-токена.",
+        "operationId": "sayHelloToEveryone",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Непередбачена помилка на сервері.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Успішна відповідь. Повідомлення 'Hello World!' повернено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/{responseId}": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Отримати відповідь на завдання за ID.",
+        "description": "Потребує ролі не нижче STUDENT. Курс повинний бути відкритим.",
+        "operationId": "getAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Відповідь успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Видалити відповідь на завдання.",
+        "description": "Доступно тільки автору відповіді, якщо вона ще не оцінена. Потребує ролі не нижче STUDENT. Курс повинний бути відкритим.",
+        "operationId": "deleteAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "responseId",
+            "in": "path",
+            "description": "ID відповіді",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Відповідь успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/{assignmentId}/responses/my": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Отримати свою відповідь на завдання.",
+        "description": "Потребує ролі не нижче STUDENT. Курс повинний бути відкритим.",
+        "operationId": "getMyAssignmentResponse",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "description": "ID завдання",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Відповідь успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentResponseDTO"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{courseId}/assignments/my-responses": {
+      "get": {
+        "tags": [
+          "Завдання курсу",
+          "Завдання, відповіді - керування відповідями в завданнях курсу"
+        ],
+        "summary": "Отримати всі свої відповіді в курсі.",
+        "description": "Потребує ролі не нижче STUDENT. Курс повинний бути відкритим.",
+        "operationId": "getAllMyResponses",
+        "parameters": [
+          {
+            "name": "courseId",
+            "in": "path",
+            "description": "ID курсу",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Список відповідей успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/cloud-storage/get-upload-link": {
+      "get": {
+        "tags": [
+          "Хмарне сховище"
+        ],
+        "summary": "Отримати посилання для вивантаження файлу на хмару.",
+        "description": "Генерує унікальне посилання (upload link) для завантаження файлу в хмару.",
+        "operationId": "getUploadLink",
+        "parameters": [
+          {
+            "name": "purpose",
+            "in": "query",
+            "description": "Призначення файлу, наприклад, 'profile-photo', для організації файлу у хмарі.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "profile-photo"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Неправильний або відсутній параметр 'purpose'.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Помилка на боці хмарного сервісу або сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Посилання успішно згенеровано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/cloud-storage/get-public-link": {
+      "get": {
+        "tags": [
+          "Хмарне сховище"
+        ],
+        "summary": "Отримати користувацьке посилання для файл.",
+        "description": "Генерує користувацьке посилання для завантаження файлу за його ідентифікатором.",
+        "operationId": "getPublicLink",
+        "parameters": [
+          {
+            "name": "fileid",
+            "in": "query",
+            "description": "Цифровий ідентифікатор файлу в хмарному сховищі.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 1234567890
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Неправильний або відсутній параметр 'fileid'.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Помилка на боці хмарного сервісу або сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Посилання успішно отримано.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadLinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Файл з вказаним 'fileid' не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/user": {
+      "delete": {
+        "tags": [
+          "Користувач"
+        ],
+        "summary": "Видалити поточного користувача.",
+        "description": "Видаляє профіль, дані та всі пов'язані записи для аутентифікованого користувача. Ця дія є незворотною.",
+        "operationId": "deleteUser",
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено. Недостатньо прав для виконання операції.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Користувача успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimpleMessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований. Потрібно надати дійсний JWT токен.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/materials/{materialId}/tags/{tagName}": {
+      "delete": {
+        "tags": [
+          "Матеріали курсу"
+        ],
+        "summary": "Видалити тег з матеріалу.",
+        "description": "Потребує ролі не нижче PROFESSOR. Курс повинний бути відкритим.",
+        "operationId": "deleteTag",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          },
+          {
+            "name": "materialId",
+            "in": "path",
+            "description": "ID матеріалу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 501
+          },
+          {
+            "name": "tagName",
+            "in": "path",
+            "description": "Назва тегу для видалення.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "бази_даних"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Тег успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteTagResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс, матеріал або тег не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/course/{id}/leave": {
+      "delete": {
+        "tags": [
+          "Курси"
+        ],
+        "summary": "Покинути курс.",
+        "description": "Покинути курс. Потребує ролі не нижче VIEWER. Курс повиннйи бути відкритим",
+        "operationId": "deleteMemberMyself",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "ID курсу.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "example": 101
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Помилка (користувач не є учасником курсу).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Доступ заборонено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Внутрішня помилка сервера.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Учасника успішно видалено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteCourseMemberResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неавторизований.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Курс не знайдено.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Мітка часу виникнення помилки",
+            "example": "2025-10-17T14:30:00.123456"
+          },
+          "status": {
+            "type": "integer",
+            "format": "int32",
+            "description": "HTTP статус код (наприклад, 400, 403, 409, 500)",
+            "example": 400
+          },
+          "error": {
+            "type": "string",
+            "description": "Причина HTTP статусу (наприклад, 'Bad Request', 'Conflict')",
+            "example": "Bad Request"
+          },
+          "message": {
+            "type": "string",
+            "description": "Основне повідомлення про помилку.",
+            "example": "Validation failed for one or more fields."
+          },
+          "details": {
+            "type": "array",
+            "description": "Деталі помилки валідації (присутні лише для 400 Bad Request).",
+            "example": [
+              {
+                "field": "username",
+                "message": "Username must be 4 to 32 characters long"
+              }
+            ],
+            "items": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": [
+          "error",
+          "status",
+          "timestamp"
+        ]
+      },
+      "PutProfileRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "Ім'я користувача.",
+            "example": "Никита",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Прізвище користувача.",
+            "example": "Візнюк",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "biography": {
+            "type": "string",
+            "description": "Біографія.",
+            "example": "Kotlin Spring software engineer",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса аватара.",
+            "example": "https://e.pcloud.link/publink/show?code=XZgcMOZtvkkzRNjFMY7ufRRFPA5LRYMxfjk"
+          }
+        },
+        "required": [
+          "firstName"
+        ]
+      },
+      "UpdateProfileResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про успішне оновлення профілю.",
+            "example": "Profile successfully updated"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "PutCourseRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Нова назва курсу.",
+            "example": "Алгоритми та структури даних",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Нова URL-адреса обкладинки курсу.",
+            "example": "https://example.com/updated_course.jpg"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PutCourseResponse": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID оновленого курсу.",
+            "example": 102
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Курс успішно оновлено."
+          }
+        },
+        "required": [
+          "courseId",
+          "message"
+        ]
+      },
+      "PutCourseMemberRoleRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача, чию роль потрібно змінити.",
+            "example": "student123",
+            "maxLength": 32,
+            "minLength": 4
+          },
+          "role": {
+            "type": "string",
+            "description": "Нова роль для користувача.",
+            "enum": [
+              "OWNER",
+              "PROFESSOR",
+              "LEADER",
+              "STUDENT",
+              "VIEWER"
+            ],
+            "example": "STUDENT"
+          }
+        },
+        "required": [
+          "role",
+          "username"
+        ]
+      },
+      "PutCourseMemberRoleResponse": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача, чию роль змінили.",
+            "example": "student123"
+          },
+          "newRole": {
+            "type": "string",
+            "description": "Нова роль користувача.",
+            "enum": [
+              "OWNER",
+              "PROFESSOR",
+              "LEADER",
+              "STUDENT",
+              "VIEWER"
+            ],
+            "example": "STUDENT"
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Роль користувача було успішно оновлено."
+          }
+        },
+        "required": [
+          "message",
+          "newRole",
+          "username"
+        ]
+      },
+      "MediaRequest": {
+        "type": "object",
+        "description": "DTO для представлення медіафайлу в запитах.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва файлу.",
+            "example": "Додаткові матеріали",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "fileUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Пряме посилання на файл.",
+            "example": "https://example.com/files/extra.zip",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fileUrl"
+        ]
+      },
+      "PutMaterialRequest": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Нова тема матеріалу.",
+            "example": "Лекція 2: Реляційна модель даних",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "textContent": {
+            "type": "string",
+            "description": "Новий текстовий контент."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Новий список тегів (повністю замінює старий).",
+            "items": {
+              "$ref": "#/components/schemas/TagDTO"
+            }
+          },
+          "media": {
+            "type": "array",
+            "description": "Новий список медіафайлів (повністю замінює старий).",
+            "items": {
+              "$ref": "#/components/schemas/MediaRequest"
+            }
+          }
+        },
+        "required": [
+          "media",
+          "tags",
+          "topic"
+        ]
+      },
+      "TagDTO": {
+        "type": "object",
+        "description": "DTO для відображення тегу.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва тегу.",
+            "example": "бази_даних",
+            "maxLength": 20,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "PutMaterialResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID оновленого матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Матеріал успішно оновлено."
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "PutAssignmentRequest": {
+        "type": "object",
+        "description": "DTO для повного оновлення завдання (PUT)",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Нова назва завдання",
+            "example": "Оновлена лабораторна робота №1",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "description": "Новий детальний опис завдання",
+            "example": "Виконати завдання згідно оновлених методичних вказівок"
+          },
+          "maxGrade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Нова максимальна оцінка за завдання",
+            "example": 120
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Новий кінцевий термін здачі завдання",
+            "example": "2025-01-15T23:59:59"
+          }
+        },
+        "required": [
+          "deadline",
+          "maxGrade",
+          "title"
+        ]
+      },
+      "SimpleMessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Загальне повідомлення про результат операції.",
+            "example": "Операція виконана успішно."
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "CreateProfileRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "Ім'я користувача.",
+            "example": "Никита",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Прізвище користувача.",
+            "example": "Візнюк",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "biography": {
+            "type": "string",
+            "description": "Коротка біографія або статус.",
+            "example": "Kotlin Spring software engineer",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса фотографії профілю.",
+            "example": "https://e.pcloud.link/publink/show?code=XZgcMOZtvkkzRNjFMY7ufRRFPA5LRYMxfjk"
+          }
+        },
+        "required": [
+          "firstName"
+        ]
+      },
+      "CreateProfileResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про успішне створення профілю.",
+            "example": "Profile successfully created"
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "CreateCourseRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва нового курсу.",
+            "example": "Основи програмування",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса обкладинки курсу.",
+            "example": "https://example.com/new_course.jpg"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "CreateCourseResponse": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID створеного курсу.",
+            "example": 102
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Курс успішно створено."
+          }
+        },
+        "required": [
+          "courseId",
+          "message"
+        ]
+      },
+      "AddCourseMemberRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача, якого потрібно додати.",
+            "example": "new_student_25",
+            "maxLength": 32,
+            "minLength": 4
+          },
+          "role": {
+            "type": "string",
+            "description": "Роль, яку потрібно призначити користувачу.",
+            "enum": [
+              "OWNER",
+              "PROFESSOR",
+              "LEADER",
+              "STUDENT",
+              "VIEWER"
+            ],
+            "example": "STUDENT"
+          }
+        },
+        "required": [
+          "role",
+          "username"
+        ]
+      },
+      "AddCourseMemberResponse": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін доданого користувача.",
+            "example": "new_student_25"
+          },
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID курсу, до якого додали користувача.",
+            "example": 102
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Користувача успішно додано до курсу."
+          }
+        },
+        "required": [
+          "courseId",
+          "message",
+          "username"
+        ]
+      },
+      "CreateMaterialRequest": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Тема нового матеріалу.",
+            "example": "Лекція 2: Моделі даних",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "textContent": {
+            "type": "string",
+            "description": "Текстовий контент.",
+            "example": "Розглянемо реляційну та NoSQL моделі..."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Початковий список тегів.",
+            "items": {
+              "$ref": "#/components/schemas/TagDTO"
+            }
+          },
+          "media": {
+            "type": "array",
+            "description": "Початковий список прикріплених медіафайлів.",
+            "items": {
+              "$ref": "#/components/schemas/MediaRequest"
+            }
+          }
+        },
+        "required": [
+          "media",
+          "tags",
+          "topic"
+        ]
+      },
+      "CreateMaterialResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID створеного матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Матеріал успішно створено."
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "AddTagRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва тегу.",
+            "example": "SQL",
+            "maxLength": 20,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "AddTagResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва доданого тегу.",
+            "example": "SQL"
+          },
+          "materialId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID матеріалу, до якого додали тег.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Тег успішно додано."
+          }
+        },
+        "required": [
+          "materialId",
+          "message",
+          "name"
+        ]
+      },
+      "AddMediaRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва файлу.",
+            "example": "Презентація",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "fileUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Пряме посилання на файл.",
+            "example": "https://example.com/files/presentation.pptx",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fileUrl"
+        ]
+      },
+      "AddMediaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID нового медіафайлу.",
+            "example": 13
+          },
+          "materialId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID матеріалу, до якого додали файл.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Медіафайл успішно додано."
+          }
+        },
+        "required": [
+          "id",
+          "materialId",
+          "message"
+        ]
+      },
+      "CreateAssignmentRequest": {
+        "type": "object",
+        "description": "DTO для створення нового завдання",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Назва завдання",
+            "example": "Лабораторна робота №1",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "description": "Детальний опис завдання",
+            "example": "Виконати завдання згідно методичних вказівок"
+          },
+          "maxGrade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Максимальна оцінка за завдання",
+            "example": 100
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Кінцевий термін здачі завдання",
+            "example": "2024-12-31T23:59:59"
+          }
+        },
+        "required": [
+          "deadline",
+          "maxGrade",
+          "title"
+        ]
+      },
+      "CreateAssignmentResponse": {
+        "type": "object",
+        "description": "Відповідь, що містить ID створеного завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "CreateAssignmentResponseMediaItem": {
+        "type": "object",
+        "description": "Елемент медіафайлу для відповіді на завдання",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва файлу",
+            "example": "Рішення.docx"
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "URL-адреса файлу",
+            "example": "https://example.com/files/solution.docx",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fileUrl"
+        ]
+      },
+      "CreateAssignmentResponseRequest": {
+        "type": "object",
+        "description": "DTO для створення відповіді на завдання",
+        "properties": {
+          "media": {
+            "type": "array",
+            "description": "Список медіафайлів, що прикріплюються до відповіді",
+            "items": {
+              "$ref": "#/components/schemas/CreateAssignmentResponseMediaItem"
+            }
+          }
+        },
+        "required": [
+          "media"
+        ]
+      },
+      "CreateAssignmentResponseResponse": {
+        "type": "object",
+        "description": "Відповідь, що містить ID створеної відповіді на завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID створеної відповіді"
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про успішне створення"
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "ReturnAssignmentResponseRequest": {
+        "type": "object",
+        "description": "DTO для повернення відповіді на доопрацювання",
+        "properties": {
+          "returnComment": {
+            "type": "string",
+            "description": "Коментар з причинами повернення",
+            "example": "Будь ласка, виправте помилки в 3-му пункті."
+          }
+        }
+      },
+      "GradeAssignmentResponseRequest": {
+        "type": "object",
+        "description": "DTO для оцінювання відповіді на завдання",
+        "properties": {
+          "grade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Оцінка за завдання. Повинна бути не менше 0.",
+            "example": 95,
+            "minimum": 0
+          },
+          "gradeComment": {
+            "type": "string",
+            "description": "Коментар до оцінки",
+            "example": "Чудова робота!"
+          }
+        },
+        "required": [
+          "grade"
+        ]
+      },
+      "AddAssignmentMediaRequest": {
+        "type": "object",
+        "description": "DTO для додавання медіафайлу до завдання",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва медіафайлу",
+            "example": "Методичні вказівки.pdf"
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "URL-адреса файлу",
+            "example": "https://example.com/files/method.pdf",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "fileUrl"
+        ]
+      },
+      "AssignmentMediaResponse": {
+        "type": "object",
+        "description": "Відповідь для операцій з медіафайлами завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "assignmentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "assignmentId",
+          "id",
+          "message"
+        ]
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача (унікальний); не містить пробілів. Довжина: 4-32 символи.",
+            "example": "nek1t_user",
+            "maxLength": 32,
+            "minLength": 4
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email користувача (унікальний). Довжина: 3-254 символи.",
+            "example": "nek1t@gmail.com",
+            "maxLength": 254,
+            "minLength": 3
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль користувача. Повинен містити 1 велику літеру, 1 малу літеру, 1 цифру та 1 спец. символ. Довжина: 8-100 символів.",
+            "example": "Password123$",
+            "maxLength": 100,
+            "minLength": 8,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "username"
+        ]
+      },
+      "RegisterResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про статус операції."
+          },
+          "username": {
+            "type": "string",
+            "description": "Логін успішно зареєстрованого користувача."
+          }
+        },
+        "required": [
+          "message"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача.",
+            "example": "nek1t_user",
+            "minLength": 1
+          },
+          "password": {
+            "type": "string",
+            "description": "Пароль користувача.",
+            "example": "Password123$",
+            "minLength": 1,
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ]
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "jwt": {
+            "type": "string",
+            "description": "JWT Bearer Token, необхідний для наступних захищених запитів.",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "username": {
+            "type": "string",
+            "description": "Логін аутентифікованого користувача."
+          }
+        },
+        "required": [
+          "jwt",
+          "username"
+        ]
+      },
+      "PatchProfileRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "Ім'я користувача.",
+            "example": "Никита",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Прізвище користувача.",
+            "example": "Візнюк",
+            "maxLength": 32,
+            "minLength": 0
+          },
+          "biography": {
+            "type": "string",
+            "description": "Біографія.",
+            "example": "Kotlin Spring software engineer",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса аватара.",
+            "example": "https://e.pcloud.link/publink/show?code=XZgcMOZtvkkzRNjFMY7ufRRFPA5LRYMxfjk"
+          }
+        }
+      },
+      "PatchCourseRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Нова назва курсу.",
+            "example": "Просунуті алгоритми",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Нова URL-адреса обкладинки курсу.",
+            "example": "https://example.com/patched_course.jpg"
+          }
+        }
+      },
+      "PatchCourseResponse": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID оновленого курсу.",
+            "example": 102
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Курс успішно оновлено."
+          }
+        },
+        "required": [
+          "courseId",
+          "message"
+        ]
+      },
+      "PatchMaterialRequest": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "description": "Нова тема матеріалу.",
+            "maxLength": 100,
+            "minLength": 0
+          },
+          "textContent": {
+            "type": "string",
+            "description": "Новий текстовий контент."
+          },
+          "tags": {
+            "type": "array",
+            "description": "Новий список тегів (замінює старий).",
+            "items": {
+              "$ref": "#/components/schemas/TagDTO"
+            }
+          },
+          "media": {
+            "type": "array",
+            "description": "Новий список медіафайлів (замінює старий).",
+            "items": {
+              "$ref": "#/components/schemas/MediaRequest"
+            }
+          }
+        }
+      },
+      "PatchMaterialResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID оновленого матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Матеріал успішно оновлено."
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "RenameMediaRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Нова назва файлу.",
+            "example": "Презентація до лекції 2",
+            "maxLength": 255,
+            "minLength": 0
+          }
+        }
+      },
+      "RenameMediaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID перейменованого медіафайлу.",
+            "example": 13
+          },
+          "materialId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID відповідного матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Медіафайл успішно перейменовано."
+          }
+        },
+        "required": [
+          "id",
+          "materialId",
+          "message"
+        ]
+      },
+      "PatchAssignmentRequest": {
+        "type": "object",
+        "description": "DTO для часткового оновлення завдання (PATCH)",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Нова назва завдання",
+            "example": "Виправлена лабораторна робота №1",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "description": {
+            "type": "string",
+            "description": "Новий детальний опис завдання",
+            "example": "Додано примітки до завдання"
+          },
+          "maxGrade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Нова максимальна оцінка за завдання",
+            "example": 105
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Новий кінцевий термін здачі завдання",
+            "example": "2025-01-20T23:59:59"
+          }
+        }
+      },
+      "RenameAssignmentMediaRequest": {
+        "type": "object",
+        "description": "DTO для перейменування медіафайлу",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Нова назва медіафайлу",
+            "example": "Оновлені методичні вказівки.pdf"
+          }
+        }
+      },
+      "GetProfileResponse": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "Ім'я користувача.",
+            "example": "Никита"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Прізвище користувача.",
+            "example": "Візнюк"
+          },
+          "biography": {
+            "type": "string",
+            "description": "Біографія.",
+            "example": "Kotlin Spring software engineer"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса аватара.",
+            "example": "https://e.pcloud.link/publink/show?code=XZgcMOZtvkkzRNjFMY7ufRRFPA5LRYMxfjk"
+          }
+        },
+        "required": [
+          "firstName"
+        ]
+      },
+      "CourseDTO": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор курсу.",
+            "example": 101
+          },
+          "name": {
+            "type": "string",
+            "description": "Назва курсу.",
+            "example": "Комп'ютерні мережі"
+          },
+          "photoUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL-адреса обкладинки курсу.",
+            "example": "https://example.com/course_cover.jpg"
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "Прапорець, що вказує, чи є курс відкритим.",
+            "example": true
+          },
+          "membersCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "К-сть учасників курсу."
+          },
+          "members": {
+            "type": "array",
+            "description": "Список учасників курсу.",
+            "items": {
+              "$ref": "#/components/schemas/CourseMemberDTO"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "isOpen",
+          "members",
+          "membersCount",
+          "name"
+        ]
+      },
+      "CourseMemberDTO": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін учасника курсу.",
+            "example": "student123"
+          },
+          "role": {
+            "type": "string",
+            "description": "Роль учасника в курсі.",
+            "enum": [
+              "OWNER",
+              "PROFESSOR",
+              "LEADER",
+              "STUDENT",
+              "VIEWER"
+            ],
+            "example": "STUDENT"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Час приєднання до курсу.",
+            "example": "2025-10-17T18:30:00"
+          }
+        },
+        "required": [
+          "createdAt",
+          "role",
+          "username"
+        ]
+      },
+      "UserCoursesResponse": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін користувача, чиї курси перераховано.",
+            "example": "teacher_smith"
+          },
+          "courses": {
+            "type": "array",
+            "description": "Список курсів, до яких належить користувач.",
+            "items": {
+              "$ref": "#/components/schemas/CourseDTO"
+            }
+          }
+        },
+        "required": [
+          "courses",
+          "username"
+        ]
+      },
+      "MaterialDTO": {
+        "type": "object",
+        "description": "DTO для відображення повного навчального матеріалу.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор матеріалу.",
+            "example": 501
+          },
+          "topic": {
+            "type": "string",
+            "description": "Тема або назва матеріалу.",
+            "example": "Лекція 1: Вступ до баз даних"
+          },
+          "textContent": {
+            "type": "string",
+            "description": "Основний текстовий контент матеріалу.",
+            "example": "У цій лекції ми розглянемо..."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Час створення матеріалу.",
+            "example": "2025-10-18T10:00:00"
+          },
+          "tags": {
+            "type": "array",
+            "description": "Список тегів, пов'язаних з матеріалом.",
+            "items": {
+              "$ref": "#/components/schemas/TagDTO"
+            }
+          },
+          "media": {
+            "type": "array",
+            "description": "Список прикріплених медіафайлів.",
+            "items": {
+              "$ref": "#/components/schemas/MaterialMediaDTO"
+            }
+          },
+          "authorUsername": {
+            "type": "string",
+            "description": "Логін автора матеріалу.",
+            "example": "teacher_smith"
+          }
+        },
+        "required": [
+          "authorUsername",
+          "createdAt",
+          "id",
+          "media",
+          "tags",
+          "topic"
+        ]
+      },
+      "MaterialMediaDTO": {
+        "type": "object",
+        "description": "DTO для відображення прикріпленого медіафайлу.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор медіафайлу.",
+            "example": 12
+          },
+          "name": {
+            "type": "string",
+            "description": "Назва файлу, надана користувачем.",
+            "example": "Слайди до лекції 1"
+          },
+          "fileUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Пряме посилання на файл.",
+            "example": "https://example.com/files/lecture1.pdf"
+          }
+        },
+        "required": [
+          "fileUrl",
+          "id"
+        ]
+      },
+      "AssignmentDTO": {
+        "type": "object",
+        "description": "Повна інформація про завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор завдання",
+            "example": 1
+          },
+          "title": {
+            "type": "string",
+            "description": "Назва завдання",
+            "example": "Лабораторна робота №1"
+          },
+          "description": {
+            "type": "string",
+            "description": "Детальний опис завдання",
+            "example": "Виконати завдання згідно методичних вказівок"
+          },
+          "maxGrade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Максимальна оцінка за завдання",
+            "example": 100
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Дата створення завдання",
+            "example": "2024-10-20T10:00:00"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Кінцевий термін здачі завдання",
+            "example": "2024-12-31T23:59:59"
+          },
+          "authorUsername": {
+            "type": "string",
+            "description": "Ім'я користувача, який створив завдання",
+            "example": "nek1t"
+          },
+          "media": {
+            "type": "array",
+            "description": "Список прикріплених медіафайлів",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentMediaDTO"
+            }
+          }
+        },
+        "required": [
+          "authorUsername",
+          "createdAt",
+          "deadline",
+          "id",
+          "maxGrade",
+          "media",
+          "title"
+        ]
+      },
+      "AssignmentMediaDTO": {
+        "type": "object",
+        "description": "Інформація про медіафайл, прикріплений до завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор медіафайлу",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Назва медіафайлу",
+            "example": "Методичні вказівки.pdf"
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "URL-адреса файлу",
+            "example": "https://example.com/files/method.pdf"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "AssignmentResponseDTO": {
+        "type": "object",
+        "description": "Повна інформація про відповідь на завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID відповіді",
+            "example": 1
+          },
+          "authorUsername": {
+            "type": "string",
+            "description": "Ім'я автора відповіді",
+            "example": "student1"
+          },
+          "isGraded": {
+            "type": "boolean",
+            "description": "Чи оцінена робота",
+            "example": true
+          },
+          "grade": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Оцінка",
+            "example": 95
+          },
+          "gradeComment": {
+            "type": "string",
+            "description": "Коментар до оцінки",
+            "example": "Чудова робота!"
+          },
+          "isReturned": {
+            "type": "boolean",
+            "description": "Чи повернута робота на доопрацювання",
+            "example": false
+          },
+          "returnComment": {
+            "type": "string",
+            "description": "Коментар до повернення",
+            "example": "Будь ласка, виправте помилки в 3-му пункті."
+          },
+          "media": {
+            "type": "array",
+            "description": "Список прикріплених медіафайлів",
+            "items": {
+              "$ref": "#/components/schemas/AssignmentResponseMediaDTO"
+            }
+          }
+        },
+        "required": [
+          "authorUsername",
+          "id",
+          "isGraded",
+          "isReturned",
+          "media"
+        ]
+      },
+      "AssignmentResponseMediaDTO": {
+        "type": "object",
+        "description": "Інформація про медіафайл, прикріплений до відповіді на завдання",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Унікальний ідентифікатор медіафайлу",
+            "example": 10
+          },
+          "name": {
+            "type": "string",
+            "description": "Назва медіафайлу",
+            "example": "Рішення.docx"
+          },
+          "fileUrl": {
+            "type": "string",
+            "description": "URL-адреса файлу",
+            "example": "https://example.com/files/solution.docx"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "UploadLinkResponse": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Унікальне посилання для завантаження файлу в хмарне сховище.",
+            "example": "https://upload.pcloud.com/upload?id=12345&code=AbCdEfGhIjK"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "DownloadLinkResponse": {
+        "type": "object",
+        "properties": {
+          "link": {
+            "type": "string",
+            "description": "Публічне посилання для доступу (перегляду/завантаження) до файлу.",
+            "example": "https://file.pcloud.com/d/AbCdEfGhIjK"
+          }
+        },
+        "required": [
+          "link"
+        ]
+      },
+      "DeleteCourseResponse": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID видаленого курсу.",
+            "example": 102
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Курс було успішно видалено."
+          }
+        },
+        "required": [
+          "courseId",
+          "message"
+        ]
+      },
+      "DeleteCourseMemberResponse": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Логін видаленого користувача.",
+            "example": "student123"
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Користувача було успішно видалено з курсу."
+          }
+        },
+        "required": [
+          "message",
+          "username"
+        ]
+      },
+      "DeleteMaterialResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID видаленого матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Матеріал успішно видалено."
+          }
+        },
+        "required": [
+          "id",
+          "message"
+        ]
+      },
+      "DeleteTagResponse": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Назва видаленого тегу.",
+            "example": "SQL"
+          },
+          "materialId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID відповідного матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Тег успішно видалено."
+          }
+        },
+        "required": [
+          "materialId",
+          "message",
+          "name"
+        ]
+      },
+      "DeleteMediaResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID видаленого медіафайлу.",
+            "example": 13
+          },
+          "materialId": {
+            "type": "integer",
+            "format": "int64",
+            "description": "ID відповідного матеріалу.",
+            "example": 502
+          },
+          "message": {
+            "type": "string",
+            "description": "Повідомлення про результат.",
+            "example": "Медіафайл успішно видалено."
+          }
+        },
+        "required": [
+          "id",
+          "materialId",
+          "message"
+        ]
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "description": "Введіть JWT токен, БЕЗ префіксу 'Bearer '",
+        "in": "header",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

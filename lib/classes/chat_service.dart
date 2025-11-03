@@ -8,10 +8,10 @@ class ChatService {
   Exception _handleErrorResponse(http.Response response, String context) {
     String errorMessage = 'Невідома помилка';
     try {
-      final error = jsonDecode(response.body);
+      final error = jsonDecode(utf8.decode(response.bodyBytes));
       errorMessage = (error is Map && error.containsKey('message'))
           ? error['message']
-          : response.body;
+          : utf8.decode(response.bodyBytes);
     } catch (_) {
       errorMessage = response.body.isEmpty ? 'Порожня відповідь' : response.body;
     }
@@ -23,7 +23,63 @@ class ChatService {
     );
   }
 
-  // --- 💡 ПОВЕРНУЛИ МЕТОДИ ДЛЯ REST API ---
+  Future<Chat> createGroupChat(String token,
+      String name,
+      List<String> memberUsernames, {
+        String? photoUrl,
+      }) async {
+    print('Attempting to create group chat. Token starts with: ${token.substring(0, 10)}...');
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/chats'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'name': name,
+        'photoUrl': photoUrl,
+        'memberUsernames': memberUsernames,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося створити груповий чат');
+    }
+  }
+
+  Future<Chat> createPrivateChat(String token, String otherUsername) async {
+    print('Attempting to create private chat with $otherUsername...');
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/chats/private'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'username': otherUsername,
+      }),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося створити приватний чат');
+    }
+  }
+
+  Future<void> clearPrivateChat(String token, int chatId, {bool clearForBoth = false}) async {
+    print('Attempting to clear private chat $chatId (clearForBoth: $clearForBoth)...');
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/private/$chatId/clear?clearForBoth=$clearForBoth'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося очистити приватний чат');
+    }
+  }
+
 
   Future<List<Chat>> getMyChats(String token) async {
     final response = await http.get(
@@ -38,26 +94,14 @@ class ChatService {
     }
   }
 
-  Future<List<Chat>> getCourseChats(String token, int courseId) async {
-    final response = await http.get(
-      Uri.parse('$_apiBaseUrl/course/$courseId/chats'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-      return data.map((json) => Chat.fromJson(json)).toList();
-    } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити чати курсу');
-    }
-  }
-
   Future<List<ChatMessage>> getMessages(
       String token,
       int chatId,
       int page,
       ) async {
+    final int size = 20;
     final response = await http.get(
-      Uri.parse('$_apiBaseUrl/chats/$chatId/messages?page=$page'),
+      Uri.parse('$_apiBaseUrl/chats/$chatId/messages?page=$page&size=$size'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
@@ -68,17 +112,75 @@ class ChatService {
     }
   }
 
-  // --- 💡 ---
-
-  Future<ChatMember> getMyChatMembership(String token, int chatId) async {
+  Future<List<ChatMember>> getChatMembers(String token, int chatId) async {
     final response = await http.get(
-      Uri.parse('$_apiBaseUrl/chats/$chatId'),
+      Uri.parse('$_apiBaseUrl/chats/$chatId/members'),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode == 200) {
-      return ChatMember.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => ChatMember.fromJson(json)).toList();
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити дані чату');
+      throw _handleErrorResponse(response, 'Не вдалося завантажити учасників чату');
+    }
+  }
+
+  Future<ChatMember> getMyChatMembership(String token, int chatId, String currentUsername) async {
+    final members = await getChatMembers(token, chatId);
+    try {
+      final myMembership = members.firstWhere(
+            (member) => member.username == currentUsername,
+      );
+      return myMembership;
+    } catch (e) {
+      throw Exception('Поточного користувача не знайдено серед учасників чату.');
+    }
+  }
+
+  Future<void> addChatMember(String token, int chatId, String username) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/members'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({
+        'username': username,
+        'role': 'MEMBER',
+      }),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw _handleErrorResponse(response, 'Не вдалося додати учасника');
+    }
+  }
+
+  Future<void> removeChatMember(String token, int chatId, String username) async {
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/members/$username'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося видалити учасника');
+    }
+  }
+
+  Future<void> deleteChat(String token, int chatId) async {
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/$chatId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося видалити чат');
+    }
+  }
+
+  Future<void> leaveChat(String token, int chatId) async {
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/members/me'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося покинути чат');
     }
   }
 }

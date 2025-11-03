@@ -5,10 +5,20 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:kurs/screens/HomeScreen.dart';
 import 'auth.dart';
+import 'package:stomp_dart_client/stomp.dart';
+import 'package:kurs/utils/fade_page_route.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.authToken});
+  const ProfileScreen({
+    super.key,
+    required this.authToken,
+    required this.username,
+    required this.stompClient,
+  });
   final String authToken;
+  final String username;
+  final StompClient stompClient;
+
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -23,7 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _displayablePhotoUrl;
   bool _isLoading = true;
   bool _profileExists = false;
- // final String _backendBaseUrl = "https://team-room-back.onrender.com";
   final String _backendBaseUrl = "http://localhost:8080";
   @override
   void initState() {
@@ -38,7 +47,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'Authorization': 'Bearer ${widget.authToken}',
       });
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
         setState(() {
           _firstNameController.text = data['firstName'] ?? '';
           _lastNameController.text = data['lastName'] ?? '';
@@ -78,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _showSuccessSnackBar("Акаунт успішно видалено.");
         if(mounted) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            FadePageRoute(child: const LoginScreen()),
                 (route) => false,
           );
         }
@@ -93,7 +102,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
   void _logout() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      FadePageRoute(child: const LoginScreen()),
           (route) => false,
     );
   }
@@ -233,14 +242,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final url = Uri.parse("$_backendBaseUrl/api/profile");
     final method = _profileExists ? 'PUT' : 'POST';
     try {
-      final bodyMap = {
+      final Map<String, dynamic> bodyMap = {
         'firstName': _firstNameController.text,
         'lastName': _lastNameController.text,
         'biography': _biographyController.text,
       };
-      if (newPhotoUrl != null) {
+
+      if (method == 'PUT') {
+        bodyMap['photoUrl'] = newPhotoUrl ?? _currentPublicPhotoUrl;
+      } else if (newPhotoUrl != null) {
         bodyMap['photoUrl'] = newPhotoUrl;
       }
+
       final headers = {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ${widget.authToken}',
@@ -274,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     print("Помилка від сервера (Статус $statusCode): $body");
     String errorMessage = "Помилка $statusCode";
     try {
-      final errorData = jsonDecode(body);
+      final errorData = jsonDecode(utf8.decode(body.codeUnits));
       final message = errorData['message'] ?? errorData['error'] ?? errorData['details'];
       if (message != null) errorMessage = message;
     } catch (e) {
@@ -297,23 +310,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF62567E);
-    const Color lightPurpleColor = Color(0xFFBFB8D1);
-    const Color backgroundColor = Colors.white;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
-      backgroundColor: backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: primaryColor,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HomeScreen(
+            Navigator.of(context).pushReplacement(
+              FadePageRoute(
+                child: HomeScreen(
                   authToken: widget.authToken,
-                  username: _firstNameController.text,
+                  username: widget.username,
+                  stompClient: widget.stompClient,
                 ),
               ),
             );
@@ -341,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          ? Center(child: CircularProgressIndicator(color: scheme.primary))
           : Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -377,7 +388,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           CircleAvatar(
                             radius: 50,
-                            backgroundColor: primaryColor,
+                            backgroundColor: scheme.primary,
                             backgroundImage: _profileImage != null
                                 ? FileImage(_profileImage!)
                                 : (_displayablePhotoUrl != null
@@ -394,11 +405,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             right: 0,
                             child: GestureDetector(
                               onTap: _pickImage,
-                              child: const CircleAvatar(
+                              child: CircleAvatar(
                                 radius: 18,
-                                backgroundColor: lightPurpleColor,
+                                backgroundColor: scheme.secondary,
                                 child: Icon(Icons.edit,
-                                    color: primaryColor, size: 18),
+                                    color: scheme.primary, size: 18),
                               ),
                             ),
                           ),
@@ -413,17 +424,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextFormField(
                         controller: _biographyController,
                         decoration: buildInputDecoration("Біографія"),
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: scheme.onPrimary),
                         maxLines: 5,
                       ),
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: GestureDetector(
                           onTap: _isLoading ? null : _handleSave,
-                          child: const CircleAvatar(
+                          child: CircleAvatar(
                             radius: 20,
-                            backgroundColor: lightPurpleColor,
-                            child: Icon(Icons.check, color: primaryColor),
+                            backgroundColor: scheme.secondary,
+                            child: Icon(Icons.check, color: scheme.primary),
                           ),
                         ),
                       ),
@@ -441,9 +452,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   InputDecoration buildInputDecoration(String label) {
     return InputDecoration(
       filled: true,
-      fillColor: const Color(0xFF62567E),
+      fillColor: Theme.of(context).colorScheme.primary,
       hintText: label,
-      hintStyle: TextStyle(color: Colors.white.withOpacity(0.8)),
+      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.85)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
@@ -452,4 +463,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-

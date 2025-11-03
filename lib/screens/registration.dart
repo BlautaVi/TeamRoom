@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:kurs/screens/Profile.dart';
 
 import 'auth.dart';
+import 'package:kurs/utils/fade_page_route.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -51,10 +51,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.of(context).pop();
-
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => LoginScreen()),
+            FadePageRoute(child: const LoginScreen()),
           );
         }
       } else {
@@ -84,24 +82,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color rightPanelColor = Color(0xFF62567E);
-    const Color buttonBackgroundColor = Color(0xFFB6A5DE);
-    const Color hintTextColor = Color(0xFF62567E);
-    const Color linkTextColor = Color(0xAAFFFFFF);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Row(
         children: [
+          // Left pane: white with title text (text stays on the left)
           Expanded(
             child: Container(
-              color: Colors.white,
-              child: const Center(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Center(
                 child: Padding(
-                  padding: EdgeInsets.all(24.0),
+                  padding: const EdgeInsets.all(24.0),
                   child: Text(
                     'Create \nyour \naccount',
                     style: TextStyle(
-                      color: Color(0xFF62567E),
+                      color: scheme.primary,
                       fontSize: 64,
                       fontFamily: 'InstrumentSans',
                       fontWeight: FontWeight.w400,
@@ -112,9 +108,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               ),
             ),
           ),
+          // Right pane: colored with form (panel on the other side of Login)
           Expanded(
             child: Container(
-              color: rightPanelColor,
+              color: scheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 50.0),
               child: Form(
                 key: _formKey,
@@ -124,8 +121,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   children: <Widget>[
                     TextFormField(
                       controller: _usernameController,
-                      style: const TextStyle(color: Color(0xFF62567E)),
-                      decoration: buildInputDecoration('Ім\'я', hintTextColor),
+                      style: TextStyle(color: scheme.primary),
+                      decoration: buildInputDecoration('Ім\'я', scheme.primary),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return "Введіть ім'я";
@@ -136,9 +133,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _emailController,
-                      style: const TextStyle(color: Color(0xFF62567E)),
+                      style: TextStyle(color: scheme.primary),
                       keyboardType: TextInputType.emailAddress,
-                      decoration: buildInputDecoration('Електронна пошта', hintTextColor),
+                      decoration: buildInputDecoration('Електронна пошта', scheme.primary),
                       validator: (value) {
                         if (value == null || value.isEmpty || !value.contains('@')) {
                           return "Введіть коректну пошту";
@@ -150,12 +147,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: !_isPasswordVisible,
-                      style: const TextStyle(color: Color(0xFF62567E) ),
-                      decoration: buildInputDecoration('Пароль', hintTextColor).copyWith(
+                      style: TextStyle(color: scheme.primary),
+                      decoration: buildInputDecoration('Пароль', scheme.primary).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: hintTextColor,
+                            color: Colors.white,
                           ),
                           onPressed: () {
                             setState(() {
@@ -177,15 +174,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const SizedBox(height: 40),
                     ElevatedButton(
                       onPressed: _register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonBackgroundColor,
-                        foregroundColor: hintTextColor,
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 0,
-                      ),
                       child: const Text(
                         'Зареєструватися',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
@@ -194,12 +182,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     const SizedBox(height: 20),
                     TextButton(
                       onPressed: () {
-                        Navigator.of(context).pop();
+                        Navigator.of(context).pushReplacement(
+                          FadePageRoute(child: const LoginScreen()),
+                        );
                       },
                       child: const Text(
                         'Є акаунт? Авторизуйтесь',
                         style: TextStyle(
-                          color: linkTextColor,
+                          color: Color(0xAAFFFFFF),
                           fontSize: 14,
                           fontWeight: FontWeight.w300,
                         ),

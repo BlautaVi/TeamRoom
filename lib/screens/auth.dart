@@ -3,6 +3,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:kurs/screens/HomeScreen.dart';
 import 'registration.dart';
+import 'package:stomp_dart_client/stomp.dart';
+import 'package:stomp_dart_client/stomp_config.dart';
+import 'package:kurs/utils/fade_page_route.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,8 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final response = await http.post(
-        Uri.parse("http://localhost:8080/api/auth/login"),
-        //Uri.parse("https://team-room-back.onrender.com/api/auth/login"),
+          Uri.parse("http://localhost:8080/api/auth/login"),
+          //Uri.parse("https://team-room-back.onrender.com/api/auth/login"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({
             "username": login,
@@ -38,12 +41,27 @@ class _LoginScreenState extends State<LoginScreen> {
           final authToken = data['jwt'];
           if (authToken != null && authToken is String) {
             print("Успішна авторизація для користувача: $login");
+
+            final stompConfig = StompConfig(
+              url: 'ws://localhost:8080/ws/websocket',
+              onConnect: (frame) {
+                print("STOMP client connected (from LoginScreen).");
+              },
+              onWebSocketError: (e) => print("WebSocket Error: $e"),
+              stompConnectHeaders: {'Authorization': 'Bearer $authToken'},
+              webSocketConnectHeaders: {'Authorization': 'Bearer $authToken'},
+            );
+
+            final stompClient = StompClient(config: stompConfig);
+            stompClient.activate();
+
             if (mounted) {
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => HomeScreen(
+                FadePageRoute(
+                  child: HomeScreen(
                     authToken: authToken,
-                    username: login,  // Pass the username from login
+                    username: login,
+                    stompClient: stompClient,
                   ),
                 ),
               );
@@ -74,17 +92,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color rightPanelColor = Color(0xFF62567E);
-    const Color buttonBackgroundColor = Color(0xFFB6A5DE);
-    const Color hintTextColor = Color(0xFF62567E);
-    const Color leftPanelTextColor = Color(0xFF62567E);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Row(
         children: [
           Expanded(
             child: Container(
-              color: Colors.white,
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24.0),
@@ -94,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 64,
                       fontFamily: 'InstrumentSans',
                       fontWeight: FontWeight.w400,
-                      color: leftPanelTextColor,
+                      color: Color(0xFF62567E),
                     ),
                     textAlign: TextAlign.left,
                   ),
@@ -104,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           Expanded(
             child: Container(
-              color: rightPanelColor,
+              color: scheme.primary,
               padding: const EdgeInsets.symmetric(horizontal: 50.0),
               child: Form(
                 key: _formKey,
@@ -118,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         filled: true,
                         fillColor: Colors.white,
                         hintText: 'Ім\'я',
-                        hintStyle: const TextStyle(color: hintTextColor),
+                        hintStyle: TextStyle(color: scheme.primary),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
@@ -139,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         filled: true,
                         fillColor: Colors.white,
                         hintText: 'Пароль',
-                        hintStyle: const TextStyle(color: hintTextColor),
+                        hintStyle: TextStyle(color: scheme.primary),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                           borderSide: BorderSide.none,
@@ -147,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         suffixIcon: IconButton(
                           icon: Icon(
                             _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                            color: hintTextColor.withOpacity(0.7),
+                            color: scheme.primary.withOpacity(0.7),
                           ),
                           onPressed: () {
                             setState(() {
@@ -166,14 +181,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 40),
                     ElevatedButton(
                       onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonBackgroundColor,
-                        foregroundColor: const Color(0xFFFFFFFF),
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
                       child: const Text(
                         'Авторизуватись',
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -183,9 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextButton(
                       onPressed: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const RegistrationScreen(),
-                          ),
+                          FadePageRoute(child: const RegistrationScreen()),
                         );
                       },
                       child: const Text(

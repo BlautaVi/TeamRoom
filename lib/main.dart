@@ -1,6 +1,8 @@
 import 'dart:io' show HttpOverrides;
 import 'package:flutter/material.dart';
 import 'package:kurs/screens/auth.dart';
+import 'package:kurs/theme/app_theme.dart';
+import 'package:kurs/utils/fade_page_route.dart';
 import 'http_overrides.dart';
 import 'dart:io';
 
@@ -19,27 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Flutter Demo',
-      theme: ThemeData(
-        fontFamily: 'InstrumentSans',
-        scaffoldBackgroundColor: const Color(0xffffffff),
-        textTheme: Theme.of(context).textTheme.apply(
-          bodyColor: const Color(0xFF7C6BA3),
-          displayColor: const Color(0xFFFFFFFF),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFB6A5DE),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            fixedSize: const Size(200, 50),
-            textStyle: const TextStyle(
-              fontSize: 18,
-            ),
-          ),
-        ),
-      ),
+      theme: AppTheme.lightTheme,
       home: const WelcomeScreen(),
     );
   }
@@ -91,9 +73,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const LoginScreen(),
-                    ),
+                    FadePageRoute(child: const LoginScreen()),
                   );
                 },
                 child: const Text('Let`s explore'),

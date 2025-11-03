@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:kurs/screens/Profile.dart';
 import 'package:kurs/screens/ChatsMain.dart';
 import 'CoursesScreen.dart';
+import 'package:stomp_dart_client/stomp.dart';
+import 'package:kurs/utils/fade_page_route.dart';
 
 class HomeScreen extends StatefulWidget {
   final String authToken;
   final String username;
+  final StompClient stompClient;
 
   const HomeScreen({
     super.key,
     required this.authToken,
     required this.username,
+    required this.stompClient,
   });
 
   @override
@@ -25,17 +29,15 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _screens = [
-      // 0. Чати
       ChatsMain(
         authToken: widget.authToken,
         currentUsername: widget.username,
+        stompClient: widget.stompClient,
       ),
-      // 1. Курси
       CoursesScreen(
         authToken: widget.authToken,
         currentUsername: widget.username,
       ),
-      // 2. Відео
       const Center(
         child: Text(
           'Сторінка Відео',
@@ -68,25 +70,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF7C6BA3);
-    const Color indicatorColor = Color(0xFF62567E);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: Row(
         children: <Widget>[
           NavigationRail(
             selectedIndex: _mainPageIndex,
             onDestinationSelected: (int index) {
-              setState(() {
-                _mainPageIndex = index;
-              });
+              setState(() => _mainPageIndex = index);
             },
             minWidth: 100,
-            backgroundColor: primaryColor,
+            backgroundColor: scheme.primary,
             groupAlignment: 0.0,
-            indicatorColor: indicatorColor,
+            indicatorColor: scheme.secondary,
             indicatorShape: const CircleBorder(),
+        leading: Padding(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 12.0),
+          child: IconButton(
+            tooltip: 'Профіль',
+            onPressed: () {
+              Navigator.of(context).push(
+                FadePageRoute(
+                  child: ProfileScreen(
+                    authToken: widget.authToken,
+                    username: widget.username,
+                    stompClient: widget.stompClient,
+                  ),
+                ),
+              );
+            },
+            iconSize: 36,
+            icon: const Icon(Icons.account_circle, color: Colors.white),
+          ),
+        ),
             destinations: <NavigationRailDestination>[
               NavigationRailDestination(
                 icon: _buildNavIcon(Icons.chat_bubble_outline, _mainPageIndex == 0),
@@ -107,41 +126,17 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          // --- 💡 ПОЧАТОК ВИПРАВЛЕННЯ ДИЗАЙНУ ---
           Expanded(
-            child: _mainPageIndex == 0
-            // Для вкладки "Чати" (індекс 0) просто показуємо екран ChatsMain.
-            // Він сам керує своїм AppBar.
-                ? _screens[0]
-            // Для всіх інших вкладок (1 і 2) використовуємо Stack,
-            // щоб показати кнопку профілю поверх.
-                : Stack(
-              children: [
-                _screens[_mainPageIndex], // Курси або Відео
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                ProfileScreen(authToken: widget.authToken),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.account_circle,
-                          color: primaryColor, size: 60),
-                      tooltip: 'Профіль',
-                    ),
-                  ),
-                ),
-              ],
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: KeyedSubtree(
+                key: ValueKey(_mainPageIndex),
+                child: _screens[_mainPageIndex],
+              ),
             ),
           ),
-          // --- 💡 КІНЕЦЬ ВИПРАВЛЕННЯ ДИЗАЙНУ ---
         ],
       ),
     );

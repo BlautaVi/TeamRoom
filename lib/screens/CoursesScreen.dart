@@ -16,6 +16,8 @@ import 'dart:io' show Platform;
 import 'package:kurs/classes/chat_models.dart';
 import 'package:kurs/classes/chat_service.dart';
 import 'chat_screen.dart';
+import 'package:kurs/utils/fade_page_route.dart';
+import 'package:kurs/utils/animated_tap_wrapper.dart';
 
 class CourseService {
   //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
@@ -234,13 +236,9 @@ class CourseService {
     }
   }
 
-  // ❗️ ВИПРАВЛЕНО 1: `deleteMember` тепер використовує query-параметри згідно з API
   Future<void> deleteMember(String token, int courseId, String username) async {
-    // Створюємо URI з query-параметром 'username'
     final uri = Uri.parse('$_apiBaseUrl/course/$courseId/members')
         .replace(queryParameters: {'username': username});
-
-    // Виконуємо DELETE-запит БЕЗ тіла (body)
     final response = await http.delete(
       uri,
       headers: {'Authorization': 'Bearer $token'},
@@ -663,8 +661,6 @@ class CourseService {
         throw _handleErrorResponse(response, 'Не вдалося надіслати відповідь');
       }
     }
-
-    // Попередня перевірка існуючої відповіді, щоб уникнути гонок
     try {
       final existingPre = await findExistingWithRetries();
       if (existingPre != null) {
@@ -674,7 +670,6 @@ class CourseService {
         await deleteAssignmentResponse(token, courseId, assignmentId, existingPre.id);
       }
     } catch (_) {
-      // якщо не змогли перевірити/видалити — пробуємо все одно створити, логіку дублюємо у catch нижче
     }
 
     try {
@@ -688,13 +683,11 @@ class CourseService {
 
       final existing = await findExistingWithRetries();
       if (existing == null) {
-        // Не вдалося знайти існуючу відповідь — повертаємо первісну помилку
         rethrow;
       }
       if (existing.isGraded == true) {
         throw Exception('Відповідь вже оцінена — перездача неможлива.');
       }
-      // Видаляємо існуючу та створюємо заново
       await deleteAssignmentResponse(token, courseId, assignmentId, existing.id);
       return await create();
     }
@@ -1243,7 +1236,7 @@ class _CourseCardState extends State<_CourseCard> {
     const Color cardColor = Color(0xFF8B80B1);
     const Color textColor = Colors.white;
 
-    return InkWell(
+    return AnimatedTapWrapper(
       onTap: () async {
         final result = await Navigator.push<bool>(
           context,
@@ -1260,7 +1253,6 @@ class _CourseCardState extends State<_CourseCard> {
           _fetchMemberCount();
         }
       },
-      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
@@ -3973,10 +3965,6 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
   }
 }
 
-// -----------------------------------------------------------------
-// ⬇️ КОД ДЛЯ ВКЛАДКИ "СТРІЧКА"
-// -----------------------------------------------------------------
-
 enum FeedItemType { assignment, material }
 
 class FeedItem {
@@ -4040,7 +4028,6 @@ class _FeedTabViewState extends State<FeedTabView> {
       for (var a in assignments) {
         combinedList.add(FeedItem(
           type: FeedItemType.assignment,
-          // Використовуємо дедлайн, якщо є; інакше упорядковуємо за ID
           sortDate: a.deadline ?? DateTime.fromMillisecondsSinceEpoch(a.id * 1000),
           assignment: a,
         ));
@@ -4050,7 +4037,6 @@ class _FeedTabViewState extends State<FeedTabView> {
       for (var m in materials) {
         combinedList.add(FeedItem(
           type: FeedItemType.material,
-          // У моделі немає createdAt; сортуємо за ID як стабільний сурогат часу
           sortDate: DateTime.fromMillisecondsSinceEpoch(m.id * 1000),
           material: m,
         ));

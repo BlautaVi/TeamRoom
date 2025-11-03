@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+
 enum ChatType {
   PRIVATE,
   GROUP,
@@ -38,7 +39,7 @@ class Chat {
   final ChatType type;
   final ChatMessage? lastMessage;
   final int unreadCount;
-  final int courseId;
+  final int? courseId;
 
   Chat({
     required this.id,
@@ -47,7 +48,7 @@ class Chat {
     required this.type,
     this.lastMessage,
     this.unreadCount = 0,
-    this.courseId = 0,
+    this.courseId,
   });
 
   factory Chat.fromJson(Map<String, dynamic> json) {
@@ -60,7 +61,27 @@ class Chat {
           ? ChatMessage.fromJson(json['lastMessage'])
           : null,
       unreadCount: json['unreadCount'] ?? 0,
-      courseId: json['courseId'] ?? 0,
+      courseId: json['courseId'],
+    );
+  }
+
+  Chat copyWith({
+    int? id,
+    String? name,
+    String? photoUrl,
+    ChatType? type,
+    ChatMessage? lastMessage,
+    int? unreadCount,
+    int? courseId,
+  }) {
+    return Chat(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      photoUrl: photoUrl ?? this.photoUrl,
+      type: type ?? this.type,
+      lastMessage: lastMessage ?? this.lastMessage,
+      unreadCount: unreadCount ?? this.unreadCount,
+      courseId: courseId ?? this.courseId,
     );
   }
 
@@ -122,6 +143,7 @@ class ChatMember {
   }
 }
 
+
 class ChatMessage {
   final int id;
   final int chatId;
@@ -174,6 +196,7 @@ class ChatMessage {
           .map((e) => Media.fromJson(e))
           .toList(),
       reactions: {},
+      isSending: false,
     );
   }
 
@@ -192,6 +215,9 @@ class ChatMessage {
       case 'ASSIGNMENT_CREATED':
         return MessageType.ASSIGNMENT_CREATED;
       default:
+        if (typeStr != null && typeStr.startsWith('ASSIGNMENT_')) {
+          return MessageType.ASSIGNMENT_CREATED;
+        }
         if (typeStr != null && typeStr != 'USER_MESSAGE') {
           return MessageType.UNKNOWN;
         }
@@ -199,7 +225,6 @@ class ChatMessage {
     }
   }
 }
-
 class RelatedEntity {
   final RelatedEntityType relatedEntityType;
   final int relatedEntityId;
