@@ -145,6 +145,15 @@ class _ChatsMainState extends State<ChatsMain> {
             });
           }
         });
+      } else if (type == 'READ_LAST_MESSAGE') {
+        if (payload['username'] == widget.currentUsername) {
+          setState(() {
+            final index = _chats.indexWhere((c) => c.id == chatId);
+            if (index != -1) {
+              _chats[index] = _chats[index].copyWith(unreadCount: 0);
+            }
+          });
+        }
       }
     } catch (e) {
       print("Error processing chat list update: $e");
@@ -231,7 +240,6 @@ class _ChatsMainState extends State<ChatsMain> {
     }
   }
 
-  // 💡 НОВИЙ МЕТОД
   Future<void> _showCreatePrivateChatDialog() async {
     final usernameController = TextEditingController();
     final Chat? newChat = await showDialog<Chat>(
@@ -320,14 +328,12 @@ class _ChatsMainState extends State<ChatsMain> {
     }
   }
 
-  // 💡 НОВИЙ МЕТОД
   void _handleNewChatCreated(Chat newChat) {
-    _loadChats(); // Оновлюємо список та підписки
+    _loadChats();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Чат успішно створено!')),
       );
-      // Одразу відкриваємо щойно створений чат
       _openChat(newChat);
     }
   }
@@ -347,9 +353,7 @@ class _ChatsMainState extends State<ChatsMain> {
             ),
       ),
     );
-    if (mounted) {
-      _loadChats();
-    }
+
   }
 
   @override
@@ -362,7 +366,6 @@ class _ChatsMainState extends State<ChatsMain> {
         leading: const SizedBox.shrink(),
         flexibleSpace: Container(),
         actions: [
-          // 💡 ЗМІНЕНО: IconButton на PopupMenuButton
           PopupMenuButton<String>(
             icon: const Icon(Icons.add_comment_outlined),
             tooltip: 'Створити чат',
@@ -446,8 +449,14 @@ class _ChatsMainState extends State<ChatsMain> {
       );
     }
 
+    _chats.sort((a, b) {
+      final aTime = a.lastMessage?.sentAt ?? DateTime(1970);
+      final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
+      return bTime.compareTo(aTime);
+    });
+
     final visibleChats = _chats.where((chat) {
-      if (chat.type == ChatType.PRIVATE && chat.lastMessage == null) {
+      if ((chat.type == ChatType.PRIVATE) && chat.lastMessage == null) {
         return false;
       }
       return true;
@@ -485,11 +494,17 @@ class _ChatsMainState extends State<ChatsMain> {
               child: FadeInAnimation(
                 child: ListTile(
                   leading: CircleAvatar(
+                    backgroundImage: (chat.photoUrl != null && chat.photoUrl!.isNotEmpty)
+                        ? NetworkImage(chat.photoUrl!)
+                        : null,
+                    child: (chat.photoUrl == null || chat.photoUrl!.isEmpty)
+                        ? Text(chat.name.isNotEmpty ? chat.name[0].toUpperCase() : '?')
+                        : null,
                   ),
                   title: Text(chat.name,
                       style: const TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: Text(
-                    chat.lastMessage?.content ?? 'Немає повідомлень',
+                    chat.lastMessage?.content ?? 'Переглянути',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

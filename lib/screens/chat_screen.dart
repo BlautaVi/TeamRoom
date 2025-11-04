@@ -12,6 +12,11 @@ import 'package:kurs/screens/CoursesScreen.dart';
 import 'package:kurs/classes/course_models.dart';
 import 'package:kurs/screens/assignment_screens.dart';
 
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'pcloud_service.dart';
+
 
 class ChatScreen extends StatefulWidget {
   final String authToken;
@@ -46,15 +51,21 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _hasMoreMessages = true;
   final List<ChatMessage> _messages = [];
   late ChatMember _myMembership;
+  Chat? _chat;
   final List<String> _typingUsers = [];
 
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _typingTimer;
 
+  late String _currentChatName;
+  String? _currentChatPhotoUrl;
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
+    _currentChatName = widget.chatName;
     _myMembership = ChatMember(
       username: widget.currentUsername,
       role: ChatRole.MEMBER,
@@ -87,31 +98,36 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _loadInitialData() async {
     if (!mounted) return;
     try {
-      _myMembership =
-      await _chatService.getMyChatMembership(widget.authToken, widget.chatId, widget.currentUsername);
-
-      final messages =
-      await _chatService.getMessages(
-        widget.authToken,
-        widget.chatId,
-        _messagePageSize,
-        messageId: null,
-        limitAfter: 0,
-      );
+      final results = await Future.wait([
+        _chatService.getMyChatMembership(widget.authToken, widget.chatId, widget.currentUsername),
+        _chatService.getChatDetails(widget.authToken, widget.chatId),
+        _chatService.getMessages(
+          widget.authToken,
+          widget.chatId,
+          _messagePageSize,
+          messageId: null,
+          limitAfter: 0,
+        ),
+      ]);
 
       if (mounted) {
+        _myMembership = results[0] as ChatMember;
+        _chat = results[1] as Chat;
+        final messages = results[2] as List<ChatMessage>;
+
         _messages.clear();
         _messages.addAll(messages.reversed);
+
         if (messages.length < _messagePageSize) {
           _hasMoreMessages = false;
         } else {
           _hasMoreMessages = true;
         }
-      }
 
-      if (mounted) {
         setState(() {
           _isLoading = false;
+          _currentChatName = _chat?.name ?? widget.chatName;
+          _currentChatPhotoUrl = _chat?.photoUrl;
         });
         _markAsRead();
       }
@@ -179,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Видалити чат?'),
-        content: Text('Ви впевнені, що хочете НАЗАВЖДИ видалити чат "${widget.chatName}"? Цю дію неможливо скасувати.'),
+        content: Text('Ви впевнені, що хочете НАЗАВЖДИ видалити чат "$_currentChatName"? Цю дію неможливо скасувати.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Скасувати')),
           TextButton(
@@ -211,7 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Покинути чат?'),
-        content: Text('Ви впевнені, що хочете покинути чат "${widget.chatName}"?'),
+        content: Text('Ви впевнені, що хочете покинути чат "$_currentChatName"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Скасувати')),
           TextButton(
@@ -238,6 +254,43 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _showClearChatDialog() async {
+    final bool? clearForBoth = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Очистити історію чату?'),
+        content: const Text('Ця дія видалить повідомлення з чату.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, null), child: const Text('Скасувати')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Тільки для мене'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Для мене та співрозмовника', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (clearForBoth != null && mounted) {
+      try {
+        await _chatService.clearPrivateChat(widget.authToken, widget.chatId, clearForBoth: clearForBoth);
+        if (mounted) {
+          _loadInitialData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Помилка очищення: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+
   void _openManageMembers() {
     Navigator.push(
       context,
@@ -246,22 +299,182 @@ class _ChatScreenState extends State<ChatScreen> {
           authToken: widget.authToken,
           chatId: widget.chatId,
           myRole: _myMembership.role,
+          currentUsername: widget.currentUsername,
         ),
       ),
     );
   }
 
+  Future<void> _showEditChatDialog() async {
+    final nameController = TextEditingController(text: _currentChatName);
+    File? newImageFile;
+    String? tempPhotoUrl = _currentChatPhotoUrl;
+
+    final bool? success = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        bool isSaving = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Редагувати чат'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey.shade300,
+                          backgroundImage: newImageFile != null
+                              ? FileImage(newImageFile!)
+                              : (tempPhotoUrl != null
+                              ? NetworkImage(tempPhotoUrl!)
+                              : null) as ImageProvider?,
+                          child: newImageFile == null && tempPhotoUrl == null
+                              ? const Icon(Icons.group, size: 50, color: Colors.grey)
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: isSaving ? null : () async {
+                              final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+                              if (pickedFile != null) {
+                                setDialogState(() {
+                                  newImageFile = File(pickedFile.path);
+                                });
+                              }
+                            },
+                            child: const CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Color(0xFFBFB8D1),
+                              child: Icon(Icons.edit, color: Color(0xFF62567E), size: 18),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Назва чату'),
+                      autofocus: true,
+                      enabled: !isSaving,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogContext, false),
+                  child: const Text('Скасувати'),
+                ),
+                ElevatedButton(
+                  onPressed: isSaving ? null : () async {
+                    final newName = nameController.text.trim();
+                    if (newName.isEmpty) return;
+
+                    setDialogState(() => isSaving = true);
+                    final scaffoldMessenger = ScaffoldMessenger.of(dialogContext);
+
+                    try {
+                      String? finalPhotoUrl = _currentChatPhotoUrl;
+
+                      if (newImageFile != null) {
+                        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Завантаження фото...')));
+
+                        final platformFile = PlatformFile(
+                          name: newImageFile!.path.split(Platform.pathSeparator).last,
+                          path: newImageFile!.path,
+                          size: await newImageFile!.length(),
+                        );
+
+                        finalPhotoUrl = await PCloudService().uploadFileAndGetPublicLink(
+                          file: platformFile,
+                          authToken: widget.authToken,
+                          purpose: 'chat-photo',
+                        );
+                      }
+                      await _chatService.patchChat(
+                        widget.authToken,
+                        widget.chatId,
+                        name: newName,
+                        photoUrl: finalPhotoUrl,
+                      );
+
+                      if (mounted) {
+                        setState(() {
+                          _currentChatName = newName;
+                          _currentChatPhotoUrl = finalPhotoUrl;
+                        });
+                        Navigator.pop(dialogContext, true);
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Помилка: ${e.toString().replaceFirst("Exception: ", "")}'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    } finally {
+                      if (mounted) setDialogState(() => isSaving = false);
+                    }
+                  },
+                  child: isSaving
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Зберегти'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (success == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Чат оновлено!')),
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF62567E);
     final bool canManageMembers = _myMembership.role == ChatRole.OWNER || _myMembership.role == ChatRole.ADMIN;
+    final bool isViewer = _myMembership.role == ChatRole.VIEWER;
+    final bool canEditChat = (_myMembership.role == ChatRole.OWNER || _myMembership.role == ChatRole.ADMIN) &&
+        (_chat?.type == ChatType.GROUP);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.chatName),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircleAvatar(
+            backgroundImage: (_currentChatPhotoUrl != null && _currentChatPhotoUrl!.isNotEmpty)
+                ? NetworkImage(_currentChatPhotoUrl!)
+                : null,
+            child: (_currentChatPhotoUrl == null || _currentChatPhotoUrl!.isEmpty)
+                ? Text(_currentChatName.isNotEmpty ? _currentChatName[0].toUpperCase() : '?')
+                : null,
+          ),
+        ),
+        title: Text(_currentChatName),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
+          if (canEditChat)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Редагувати чат',
+              onPressed: _showEditChatDialog,
+            ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
@@ -271,44 +484,59 @@ class _ChatScreenState extends State<ChatScreen> {
                 _showDeleteChatDialog();
               } else if (value == 'leave_chat') {
                 _showLeaveChatDialog();
+              } else if (value == 'clear_chat') {
+                _showClearChatDialog();
               }
             },
             itemBuilder: (BuildContext context) {
               final List<PopupMenuEntry<String>> items = [];
 
-              if (canManageMembers) {
+              if (_chat?.type == ChatType.PRIVATE) {
                 items.add(
                   const PopupMenuItem<String>(
-                    value: 'manage_members',
+                    value: 'clear_chat',
                     child: ListTile(
-                      leading: Icon(Icons.group),
-                      title: Text('Учасники'),
-                    ),
-                  ),
-                );
-              }
-              if (_myMembership.role == ChatRole.OWNER) {
-                items.add(
-                  const PopupMenuItem<String>(
-                    value: 'delete_chat',
-                    child: ListTile(
-                      leading: Icon(Icons.delete_forever, color: Colors.red),
-                      title: Text('Видалити чат', style: TextStyle(color: Colors.red)),
+                      leading: Icon(Icons.cleaning_services_outlined),
+                      title: Text('Очистити історію'),
                     ),
                   ),
                 );
               }
 
-              if (_myMembership.role != ChatRole.OWNER) {
-                items.add(
-                  const PopupMenuItem<String>(
-                    value: 'leave_chat',
-                    child: ListTile(
-                      leading: Icon(Icons.exit_to_app, color: Colors.red),
-                      title: Text('Покинути чат', style: TextStyle(color: Colors.red)),
+              if (_chat?.type == ChatType.GROUP) {
+                if (canManageMembers) {
+                  items.add(
+                    const PopupMenuItem<String>(
+                      value: 'manage_members',
+                      child: ListTile(
+                        leading: Icon(Icons.group),
+                        title: Text('Учасники'),
+                      ),
                     ),
-                  ),
-                );
+                  );
+                }
+                if (_myMembership.role == ChatRole.OWNER) {
+                  items.add(
+                    const PopupMenuItem<String>(
+                      value: 'delete_chat',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_forever, color: Colors.red),
+                        title: Text('Видалити чат', style: TextStyle(color: Colors.red)),
+                      ),
+                    ),
+                  );
+                }
+                if (_myMembership.role != ChatRole.OWNER) {
+                  items.add(
+                    const PopupMenuItem<String>(
+                      value: 'leave_chat',
+                      child: ListTile(
+                        leading: Icon(Icons.exit_to_app, color: Colors.red),
+                        title: Text('Покинути чат', style: TextStyle(color: Colors.red)),
+                      ),
+                    ),
+                  );
+                }
               }
               return items;
             },
@@ -371,10 +599,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     message: message,
                     isMe: isMe,
                     primaryColor: primaryColor,
-                    onReact: (emoji) =>
-                        _sendReaction(message.id, emoji),
-                    onDelete: () => _sendDelete(message.id),
-                    canDelete: isMe || canManageMembers,
+                    myRole: _myMembership.role,
+                    onLongPress: () => _showMessageOptions(context, message),
                   );
                 },
               ),
@@ -390,33 +616,126 @@ class _ChatScreenState extends State<ChatScreen> {
                     color: Colors.grey.shade600, fontStyle: FontStyle.italic),
               ),
             ),
-          Container(
-            padding: const EdgeInsets.all(8.0),
-            color: Colors.white,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: const InputDecoration(
-                      hintText: 'Введіть повідомлення...',
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(20))),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 16),
+
+          if (!isViewer)
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      decoration: const InputDecoration(
+                        hintText: 'Введіть повідомлення...',
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(20))),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      onSubmitted: (_) => _sendMessage(),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
                   ),
+                  IconButton(
+                    icon: const Icon(Icons.send, color: primaryColor),
+                    onPressed: _sendMessage,
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: Text(
+                  "Ви у режимі перегляду. Надсилання повідомлень вимкнено.",
+                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send, color: primaryColor),
-                  onPressed: _sendMessage,
-                ),
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
+  }
+
+  void _showMessageOptions(BuildContext context, ChatMessage message) {
+    if (message.isSending || message.isDeleted) return;
+
+    final bool isMe = message.username == widget.currentUsername;
+    final bool canEdit = isMe && message.type == MessageType.USER_MESSAGE;
+
+    final bool canDelete = isMe ||
+        _myMembership.role == ChatRole.MODERATOR ||
+        _myMembership.role == ChatRole.ADMIN ||
+        _myMembership.role == ChatRole.OWNER;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (builderContext) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              if (canEdit)
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Редагувати'),
+                  onTap: () {
+                    Navigator.pop(builderContext);
+                    _showEditMessageDialog(message);
+                  },
+                ),
+              if (canDelete)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Видалити', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(builderContext);
+                    _sendDelete(message.id);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showEditMessageDialog(ChatMessage message) async {
+    final editController = TextEditingController(text: message.content);
+    final String? newContent = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Редагувати повідомлення'),
+          content: TextField(
+            controller: editController,
+            autofocus: true,
+            maxLines: null,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, null),
+              child: const Text('Скасувати'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final text = editController.text.trim();
+                if (text.isNotEmpty && text != message.content) {
+                  Navigator.pop(dialogContext, text);
+                } else {
+                  Navigator.pop(dialogContext, null);
+                }
+              },
+              child: const Text('Зберегти'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (newContent != null) {
+      _sendEdit(message.id, newContent);
+    }
   }
 
   void _onTyping() {
@@ -515,7 +834,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _handleNewMessage(ChatMessage message) {
-    if (_messages.any((m) => m.id == message.id)) return;
+    if (_messages.any((m) => m.id == message.id && m.id != 0)) return;
 
     if (message.username == widget.currentUsername) {
       _messages.removeWhere((m) =>
@@ -524,7 +843,10 @@ class _ChatScreenState extends State<ChatScreen> {
           m.username == message.username);
     }
 
-    _messages.add(message);
+    if (!_messages.any((m) => m.id == message.id)) {
+      _messages.add(message);
+    }
+
     _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
     if (message.username == widget.currentUsername) {
@@ -627,6 +949,20 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.clear();
   }
 
+  void _sendEdit(int messageId, String newContent) {
+    if (widget.stompClient.connected != true) return;
+
+    widget.stompClient.send(
+      destination: '/app/chat/${widget.chatId}/edit',
+      body: jsonEncode({
+        'messageId': messageId,
+        'content': newContent,
+        'relatedEntities': [],
+        'media': [],
+      }),
+    );
+  }
+
   void _sendReaction(int messageId, String emoji) {
     if (widget.stompClient.connected != true) return;
     widget.stompClient.send(
@@ -652,7 +988,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messages.isEmpty || widget.stompClient.connected != true) return;
 
     final int lastMessageId = _messages.last.id;
-    if (lastMessageId <= 0) return; // Не відправляти для оптимістичних повідомлень
+    if (lastMessageId <= 0) return;
 
     if (_myMembership.lastReadMessageId < lastMessageId) {
       widget.stompClient.send(
@@ -677,17 +1013,16 @@ class _MessageBubble extends StatelessWidget {
     required this.message,
     required this.isMe,
     required this.primaryColor,
-    required this.onReact,
-    required this.onDelete,
-    required this.canDelete,
+    required this.myRole,
+    required this.onLongPress,
   });
 
   final ChatMessage message;
   final bool isMe;
   final Color primaryColor;
-  final Function(String emoji) onReact;
-  final Function() onDelete;
-  final bool canDelete;
+  final ChatRole myRole;
+  final VoidCallback onLongPress;
+
 
   @override
   Widget build(BuildContext context) {
@@ -695,9 +1030,7 @@ class _MessageBubble extends StatelessWidget {
       mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: [
         GestureDetector(
-          onLongPress: () {
-            if (canDelete && !message.isSending) onDelete();
-          },
+          onLongPress: onLongPress,
           child: Container(
             constraints: BoxConstraints(
               maxWidth: MediaQuery.of(context).size.width * 0.7,
@@ -908,7 +1241,7 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Створено нове завдання"),
+                Text(widget.message.content.isNotEmpty ? widget.message.content : "Створено нове завдання"),
                 if (assignment.deadline != null)
                   Text(
                     "Дедлайн: ${DateFormat('dd.MM.yyyy, HH:mm').format(assignment.deadline!.toLocal())}",

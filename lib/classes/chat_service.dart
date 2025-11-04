@@ -28,7 +28,6 @@ class ChatService {
       List<String> memberUsernames, {
         String? photoUrl,
       }) async {
-    print('Attempting to create group chat. Token starts with: ${token.substring(0, 10)}...');
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats'),
       headers: {
@@ -50,7 +49,6 @@ class ChatService {
   }
 
   Future<Chat> createPrivateChat(String token, String otherUsername) async {
-    print('Attempting to create private chat with $otherUsername...');
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/private'),
       headers: {
@@ -70,7 +68,6 @@ class ChatService {
   }
 
   Future<void> clearPrivateChat(String token, int chatId, {bool clearForBoth = false}) async {
-    print('Attempting to clear private chat $chatId (clearForBoth: $clearForBoth)...');
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/chats/private/$chatId/clear?clearForBoth=$clearForBoth'),
       headers: {'Authorization': 'Bearer $token'},
@@ -79,7 +76,6 @@ class ChatService {
       throw _handleErrorResponse(response, 'Не вдалося очистити приватний чат');
     }
   }
-
 
   Future<List<Chat>> getMyChats(String token) async {
     final response = await http.get(
@@ -94,11 +90,23 @@ class ChatService {
     }
   }
 
+  Future<Chat> getChatDetails(String token, int chatId) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/chats/$chatId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося завантажити деталі чату');
+    }
+  }
+
   Future<List<ChatMessage>> getMessages(
       String token,
       int chatId,
       int limitBefore,
-          {int? messageId,
+      {int? messageId,
         int? limitAfter}
       ) async {
 
@@ -195,6 +203,54 @@ class ChatService {
     );
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw _handleErrorResponse(response, 'Не вдалося покинути чат');
+    }
+  }
+
+  Future<void> patchChat(String token, int chatId, {String? name, String? photoUrl}) async {
+    if (name == null && photoUrl == null) return;
+
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (photoUrl != null) body['photoUrl'] = photoUrl;
+
+    final response = await http.patch(
+      Uri.parse('$_apiBaseUrl/chats/$chatId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(body),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(response, 'Не вдалося оновити чат');
+    }
+  }
+
+  Future<void> updateChatMemberRole(String token, int chatId, String username, ChatRole newRole) async {
+    final response = await http.put(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/members/$username'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({'role': newRole.name}),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(response, 'Не вдалося змінити роль учасника');
+    }
+  }
+
+  Future<void> transferOwnership(String token, int chatId, String newOwnerUsername) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/transfer-ownership'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode({'newOwnerUsername': newOwnerUsername}),
+    );
+    if (response.statusCode != 200) {
+      throw _handleErrorResponse(response, 'Не вдалося передати права власності');
     }
   }
 }
