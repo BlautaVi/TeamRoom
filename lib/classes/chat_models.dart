@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+
 enum ChatType {
   PRIVATE,
   GROUP,
@@ -6,7 +7,6 @@ enum ChatType {
   MAIN_COURSE_CHAT,
   UNKNOWN
 }
-
 enum MessageType {
   USER_MESSAGE,
   USER_JOINED_TO_CHAT,
@@ -53,14 +53,15 @@ class Chat {
   factory Chat.fromJson(Map<String, dynamic> json) {
     final parsedType = _parseChatType(json['type']);
     final rawName = (json['name'] as String?)?.trim();
+
     final resolvedName = (rawName == null || rawName.isEmpty)
         ? (
-            parsedType == ChatType.COURSE_CHAT || parsedType == ChatType.MAIN_COURSE_CHAT
-                ? 'чат курсу'
-                : parsedType == ChatType.PRIVATE
-                    ? 'Приватний чат'
-                    : 'Невідомий чат'
-          )
+        parsedType == ChatType.COURSE_CHAT || parsedType == ChatType.MAIN_COURSE_CHAT
+            ? 'Чат курсу'
+            : parsedType == ChatType.PRIVATE
+            ? 'Приватний чат'
+            : 'Невідомий чат'
+    )
         : rawName;
 
     return Chat(
@@ -117,12 +118,14 @@ class ChatMember {
   final ChatRole role;
   final int lastReadMessageId;
   final DateTime? lastReadAt;
+  final DateTime? joinedAt;
 
   ChatMember({
     required this.username,
     required this.role,
     this.lastReadMessageId = 0,
     this.lastReadAt,
+    this.joinedAt,
   });
 
   factory ChatMember.fromJson(Map<String, dynamic> json) {
@@ -132,6 +135,9 @@ class ChatMember {
       lastReadMessageId: json['lastReadMessageId'] ?? 0,
       lastReadAt: json['lastReadAt'] != null
           ? DateTime.tryParse(json['lastReadAt'])
+          : null,
+      joinedAt: json['joinedAt'] != null
+          ? DateTime.tryParse(json['joinedAt'])
           : null,
     );
   }
@@ -158,7 +164,7 @@ class ChatMember {
 class ChatMessage {
   final int id;
   final int chatId;
-  final String username;
+  final String? username;
   late final String content;
   final MessageType type;
   final int? replyToMessageId;
@@ -175,7 +181,7 @@ class ChatMessage {
   ChatMessage({
     required this.id,
     required this.chatId,
-    required this.username,
+    this.username,
     required this.content,
     required this.type,
     this.replyToMessageId,
@@ -193,7 +199,7 @@ class ChatMessage {
     return ChatMessage(
       id: json['id'] ?? 0,
       chatId: json['chatId'] ?? 0,
-      username: json['username'] ?? 'system',
+      username: json['username'],
       content: json['content'] ?? '',
       type: _parseMessageType(json['type']),
       replyToMessageId: json['replyToMessageId'],
@@ -209,15 +215,45 @@ class ChatMessage {
       media: (json['media'] as List? ?? [])
           .map((e) => Media.fromJson(e))
           .toList(),
-      reactions: {},
+
+      reactions: _parseReactions(json['reactions']),
+
       isSending: false,
     );
+  }
+
+  static Map<String, List<String>> _parseReactions(dynamic reactionsJson) {
+    if (reactionsJson == null || reactionsJson is! List) {
+      return {};
+    }
+
+    final Map<String, List<String>> reactionsMap = {};
+    try {
+      for (var reactionObject in (reactionsJson as List)) {
+        if (reactionObject is Map) {
+          final String? emoji = reactionObject['emoji'] as String?;
+          final String? username = reactionObject['username'] as String?;
+
+          if (emoji != null && username != null) {
+            if (reactionsMap[emoji] == null) {
+              reactionsMap[emoji] = [];
+            }
+            if (!reactionsMap[emoji]!.contains(username)) {
+              reactionsMap[emoji]!.add(username);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print("Error parsing reactions list: $e");
+      return {};
+    }
+    return reactionsMap;
   }
 
   String get formattedTime {
     return DateFormat('HH:mm').format(sentAt.toLocal());
   }
-
   static MessageType _parseMessageType(String? typeStr) {
     switch (typeStr) {
       case 'USER_MESSAGE':
@@ -226,13 +262,33 @@ class ChatMessage {
         return MessageType.USER_JOINED_TO_CHAT;
       case 'USER_LEFT_FROM_CHAT':
         return MessageType.USER_LEFT_FROM_CHAT;
+      case 'COURSE_OPENED':
+        return MessageType.COURSE_OPENED;
+      case 'COURSE_CLOSED':
+        return MessageType.COURSE_CLOSED;
+      case 'MATERIAL_CREATED':
+        return MessageType.MATERIAL_CREATED;
+      case 'MATERIAL_UPDATED':
+        return MessageType.MATERIAL_UPDATED;
+      case 'MATERIAL_DELETED':
+        return MessageType.MATERIAL_DELETED;
       case 'ASSIGNMENT_CREATED':
         return MessageType.ASSIGNMENT_CREATED;
+      case 'ASSIGNMENT_UPDATED':
+        return MessageType.ASSIGNMENT_UPDATED;
+      case 'ASSIGNMENT_DELETED':
+        return MessageType.ASSIGNMENT_DELETED;
+      case 'ASSIGNMENT_DEADLINE_IN_24HR':
+        return MessageType.ASSIGNMENT_DEADLINE_IN_24HR;
+      case 'ASSIGNMENT_DEADLINE_ENDED':
+        return MessageType.ASSIGNMENT_DEADLINE_ENDED;
+      case 'CONFERENCE_STARTED':
+        return MessageType.CONFERENCE_STARTED;
+      case 'CONFERENCE_ENDED':
+        return MessageType.CONFERENCE_ENDED;
       default:
-        if (typeStr != null && typeStr.startsWith('ASSIGNMENT_')) {
-          return MessageType.ASSIGNMENT_CREATED;
-        }
         if (typeStr != null && typeStr != 'USER_MESSAGE') {
+          print("Warning: Unknown MessageType received: $typeStr");
           return MessageType.UNKNOWN;
         }
         return MessageType.USER_MESSAGE;
@@ -286,5 +342,13 @@ class Media {
       fileType: json['fileType'],
       fileSizeBytes: json['fileSizeBytes'],
     );
+  }
+  Map<String, dynamic> toJson() {
+    return {
+      'fileUrl': fileUrl,
+      'fileName': fileName,
+      'fileType': fileType,
+      'fileSizeBytes': fileSizeBytes,
+    };
   }
 }

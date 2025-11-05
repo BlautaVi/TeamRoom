@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -1665,7 +1664,6 @@ class ResponseDetailScreen extends StatefulWidget {
 
 class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
   late Future<AssignmentResponse> _responseFuture;
-  AssignmentResponse? _currentResponseData;
   bool _isDownloading = false;
   bool _isProcessingAction = false;
   Future<Assignment>? _parentAssignmentFuture;
@@ -1699,7 +1697,6 @@ class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
           widget.responseId,
         )
             .then((response) {
-          if (mounted) _currentResponseData = response;
           return response;
         })
             .catchError((e) {
@@ -1829,9 +1826,6 @@ class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
       widget.currentUserRole == CourseRole.PROFESSOR ||
           widget.currentUserRole == CourseRole.OWNER;
 
-  bool get _isAuthor =>
-      _currentResponseData != null &&
-          widget.currentUsername == _currentResponseData!.authorUsername;
 
   Future<void> _grade(AssignmentResponse resp) async {
     if (_isProcessingAction) return;
@@ -2284,7 +2278,7 @@ class _ResponseDetailScreenState extends State<ResponseDetailScreen> {
                         assignmentSnapshot.hasData) {
                       assignmentDeadline = assignmentSnapshot.data!.deadline;
                       deadlineHasPassed = assignmentDeadline != null &&
-                          assignmentDeadline!.isBefore(DateTime.now());
+                          assignmentDeadline.isBefore(DateTime.now());
                     } else if (assignmentSnapshot.hasError) {
                       print("Error fetching parent assignment details for deadline check: ${assignmentSnapshot.error}");
                     }

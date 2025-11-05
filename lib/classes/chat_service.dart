@@ -279,19 +279,41 @@ class ChatService {
     );
     if (response.statusCode == 200) {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+
+      List<dynamic> messagesList = [];
+
       if (decoded is List) {
-        return decoded.map((json) => ChatMessage.fromJson(json)).toList();
+        messagesList = decoded;
+      } else if (decoded is Map && decoded['messages'] is List) {
+        messagesList = decoded['messages'];
       }
-      if (decoded is Map && decoded['messages'] is List) {
-        final List<dynamic> data = decoded['messages'];
-        return data.map((json) => ChatMessage.fromJson(json)).toList();
-      }
-      return [];
+      return messagesList.map((json) {
+        if (json is Map<String, dynamic>) {
+          final normalizedJson = {
+            'id': json['messageId'] ?? json['id'] ?? 0,
+
+            'content': json['messageContent'] ?? json['content'] ?? '',
+
+            'username': json['username'],
+            'type': json['messageType'] ?? json['type'] ?? 'USER_MESSAGE',
+            'isDeleted': json['isDeleted'] ?? false,
+            'chatId': json['chatId'] ?? chatId,
+            'replyToMessageId': json['replyToMessageId'],
+            'sentAt': json['sentAt'] ?? DateTime.now().toIso8601String(),
+            'editedAt': json['editedAt'],
+            'relatedEntities': json['relatedEntities'] ?? [],
+            'media': json['media'] ?? [],
+            'reactions': json['reactions'] ?? []
+          };
+          return ChatMessage.fromJson(normalizedJson);
+        }
+        return ChatMessage.fromJson({});
+      }).toList();
+
     } else {
       throw _handleErrorResponse(response, 'Не вдалося завантажити закріплені повідомлення');
     }
   }
-
   Future<void> pinMessage(String token, int chatId, int messageId) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/$chatId/pinned'),
