@@ -2,23 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'dart:convert';
 import 'package:stomp_dart_client/stomp.dart';
-import 'package:stomp_dart_client/stomp_config.dart';
 import 'package:stomp_dart_client/stomp_frame.dart';
 import 'package:kurs/classes/chat_models.dart';
 import 'package:kurs/classes/chat_service.dart';
 import 'chat_screen.dart';
+import 'package:kurs/screens/pcloud_service.dart';
 
 
 class ChatsMain extends StatefulWidget {
   final String authToken;
   final String currentUsername;
   final StompClient stompClient;
+  final int? filterByCourseId;
 
   const ChatsMain({
     super.key,
     required this.authToken,
     required this.currentUsername,
     required this.stompClient,
+    this.filterByCourseId,
   });
 
   @override
@@ -69,7 +71,8 @@ class _ChatsMainState extends State<ChatsMain> {
           _chats = chats;
           _isLoading = false;
         });
-        _subscribeToChatTopics(chats);
+        final filteredChats = _getFilteredChats(chats);
+        _subscribeToChatTopics(filteredChats);
       }
     } catch (e) {
       if (mounted) {
@@ -81,6 +84,19 @@ class _ChatsMainState extends State<ChatsMain> {
       }
     }
   }
+
+  List<Chat> _getFilteredChats(List<Chat> allChats) {
+    if (widget.filterByCourseId == null) {
+      return allChats.where((chat) =>
+      chat.type == ChatType.GROUP || chat.type == ChatType.PRIVATE
+      ).toList();
+    } else {
+      return allChats.where((chat) =>
+      chat.courseId == widget.filterByCourseId
+      ).toList();
+    }
+  }
+
 
   void _onStompConnect(StompFrame? frame) {
     print("STOMP client connected (ChatsMain).");
@@ -104,9 +120,7 @@ class _ChatsMainState extends State<ChatsMain> {
         destination: '/topic/chats/${chat.id}',
         callback: (frame) => _onChatListUpdate(frame, chat.id),
       );
-      if (unsubscribe != null) {
-        _chatSubscriptions[chat.id] = unsubscribe;
-      }
+      _chatSubscriptions[chat.id] = unsubscribe;
     }
   }
 
@@ -353,53 +367,62 @@ class _ChatsMainState extends State<ChatsMain> {
             ),
       ),
     );
-
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isEmbedded = widget.filterByCourseId != null;
+
+    final appBar = AppBar(
+      title: const Text('Мої чати'),
+      backgroundColor: const Color(0xFF62567E),
+      foregroundColor: Colors.white,
+      leading: const SizedBox.shrink(),
+      flexibleSpace: Container(),
+      actions: [
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.add_comment_outlined),
+          tooltip: 'Створити чат',
+          onSelected: (value) {
+            if (value == 'group') {
+              _showCreateGroupChatDialog();
+            } else if (value == 'private') {
+              _showCreatePrivateChatDialog();
+            }
+          },
+          itemBuilder: (BuildContext context) =>
+          <PopupMenuEntry<String>>[
+            const PopupMenuItem<String>(
+              value: 'private',
+              child: ListTile(
+                leading: Icon(Icons.person_add_alt_1_outlined),
+                title: Text('Приватний чат'),
+              ),
+            ),
+            const PopupMenuItem<String>(
+              value: 'group',
+              child: ListTile(
+                leading: Icon(Icons.group_add_outlined),
+                title: Text('Груповий чат'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final body = RefreshIndicator(
+      onRefresh: _loadChats,
+      child: _buildChatList(),
+    );
+
+    if (isEmbedded) {
+      return body;
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Мої чати'),
-        backgroundColor: const Color(0xFF62567E),
-        foregroundColor: Colors.white,
-        leading: const SizedBox.shrink(),
-        flexibleSpace: Container(),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.add_comment_outlined),
-            tooltip: 'Створити чат',
-            onSelected: (value) {
-              if (value == 'group') {
-                _showCreateGroupChatDialog();
-              } else if (value == 'private') {
-                _showCreatePrivateChatDialog();
-              }
-            },
-            itemBuilder: (BuildContext context) =>
-            <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'private',
-                child: ListTile(
-                  leading: Icon(Icons.person_add_alt_1_outlined),
-                  title: Text('Приватний чат'),
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'group',
-                child: ListTile(
-                  leading: Icon(Icons.group_add_outlined),
-                  title: Text('Груповий чат'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadChats,
-        child: _buildChatList(),
-      ),
+      appBar: appBar,
+      body: body,
     );
   }
 
@@ -432,12 +455,17 @@ class _ChatsMainState extends State<ChatsMain> {
       );
     }
 
-    if (_chats.isEmpty) {
+    final filteredChats = _getFilteredChats(_chats);
+
+    if (filteredChats.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('У вас ще немає чатів.'),
+            Text(widget.filterByCourseId != null
+                ? 'Для цього курсу ще немає чатів.'
+                : 'У вас ще немає чатів.'
+            ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
@@ -449,26 +477,23 @@ class _ChatsMainState extends State<ChatsMain> {
       );
     }
 
-    _chats.sort((a, b) {
+    filteredChats.sort((a, b) {
       final aTime = a.lastMessage?.sentAt ?? DateTime(1970);
       final bTime = b.lastMessage?.sentAt ?? DateTime(1970);
       return bTime.compareTo(aTime);
     });
 
-    final visibleChats = _chats.where((chat) {
-      if ((chat.type == ChatType.PRIVATE) && chat.lastMessage == null) {
-        return false;
-      }
-      return true;
-    }).toList();
-
+    final visibleChats = filteredChats;
 
     if (visibleChats.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('У вас немає активних чатів.'),
+            Text(widget.filterByCourseId != null
+                ? 'Немає активних чатів у курсі.'
+                : 'У вас немає активних чатів.'
+            ),
             const SizedBox(height: 10),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
@@ -492,32 +517,8 @@ class _ChatsMainState extends State<ChatsMain> {
             child: SlideAnimation(
               verticalOffset: 50.0,
               child: FadeInAnimation(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundImage: (chat.photoUrl != null && chat.photoUrl!.isNotEmpty)
-                        ? NetworkImage(chat.photoUrl!)
-                        : null,
-                    child: (chat.photoUrl == null || chat.photoUrl!.isEmpty)
-                        ? Text(chat.name.isNotEmpty ? chat.name[0].toUpperCase() : '?')
-                        : null,
-                  ),
-                  title: Text(chat.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text(
-                    chat.lastMessage?.content ?? 'Переглянути',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: chat.unreadCount > 0
-                      ? CircleAvatar(
-                    radius: 12,
-                    backgroundColor: Colors.red,
-                    child: Text(
-                      chat.unreadCount.toString(),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  )
-                      : null,
+                child: _ChatListTile(
+                  chat: chat,
                   onTap: () => _openChat(chat),
                 ),
               ),
@@ -525,6 +526,81 @@ class _ChatsMainState extends State<ChatsMain> {
           );
         },
       ),
+    );
+  }
+}
+class _ChatListTile extends StatefulWidget {
+  final Chat chat;
+  final VoidCallback onTap;
+
+  const _ChatListTile({required this.chat, required this.onTap});
+
+  @override
+  State<_ChatListTile> createState() => _ChatListTileState();
+}
+
+class _ChatListTileState extends State<_ChatListTile> {
+  String? _directPhotoUrl;
+  bool _isLoadingPhoto = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolvePhotoUrl();
+  }
+
+  // 💡 Логіка, яка була в CoursesScreen
+  Future<void> _resolvePhotoUrl() async {
+    if (widget.chat.photoUrl != null && widget.chat.photoUrl!.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _isLoadingPhoto = true);
+      try {
+        final directUrl = await PCloudService().getDirectImageUrl(
+          widget.chat.photoUrl!,
+        );
+        if (mounted) {
+          setState(() {
+            _directPhotoUrl = directUrl;
+            _isLoadingPhoto = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) setState(() => _isLoadingPhoto = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundImage: (_directPhotoUrl != null && _directPhotoUrl!.isNotEmpty)
+            ? NetworkImage(_directPhotoUrl!)
+            : null,
+        child: _isLoadingPhoto
+            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            : (_directPhotoUrl == null || _directPhotoUrl!.isEmpty)
+            ? Text(widget.chat.name.isNotEmpty ? widget.chat.name[0].toUpperCase() : '?')
+            : null,
+      ),
+      title: Text(widget.chat.name,
+          style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(
+        widget.chat.lastMessage?.content ?? (widget.chat.courseId != null ? 'Немає повідомлень' : 'Переглянути'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: widget.chat.unreadCount > 0
+          ? CircleAvatar(
+        radius: 12,
+        backgroundColor: Colors.red,
+        child: Text(
+          widget.chat.unreadCount.toString(),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+        ),
+      )
+          : null,
+      onTap: widget.onTap,
     );
   }
 }

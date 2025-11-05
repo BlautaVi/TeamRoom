@@ -18,9 +18,10 @@ import 'package:kurs/classes/chat_service.dart';
 import 'chat_screen.dart';
 import 'package:kurs/utils/fade_page_route.dart';
 import 'package:kurs/utils/animated_tap_wrapper.dart';
+import 'ChatsMain.dart';
+import 'package:stomp_dart_client/stomp.dart';
 
 class CourseService {
-  //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
   final String _apiBaseUrl = "http://localhost:8080/api";
 
   Exception _handleErrorResponse(http.Response response, String context) {
@@ -615,7 +616,7 @@ class CourseService {
           try {
             final myAll = await getAllMyAssignmentResponses(token, courseId);
             existing = myAll.firstWhere(
-              (r) => r.assignmentId == assignmentId,
+                  (r) => r.assignmentId == assignmentId,
               orElse: () => AssignmentResponse(
                 id: 0,
                 assignmentId: -1,
@@ -694,9 +695,9 @@ class CourseService {
   }
 
   Future<List<AssignmentResponse>> getAllMyAssignmentResponses(
-    String token,
-    int courseId,
-  ) async {
+      String token,
+      int courseId,
+      ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/my-responses'),
       headers: {'Authorization': 'Bearer $token'},
@@ -917,11 +918,13 @@ class CourseService {
 class CoursesScreen extends StatefulWidget {
   final String authToken;
   final String currentUsername;
+  final StompClient stompClient;
 
   const CoursesScreen({
     super.key,
     required this.authToken,
     required this.currentUsername,
+    required this.stompClient,
   });
 
   @override
@@ -1137,6 +1140,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                           authToken: widget.authToken,
                           onCourseAction: _loadCourses,
                           currentUsername: widget.currentUsername,
+                          stompClient: widget.stompClient,
                         );
                       },
                     ),
@@ -1156,12 +1160,14 @@ class _CourseCard extends StatefulWidget {
   final String authToken;
   final VoidCallback onCourseAction;
   final String currentUsername;
+  final StompClient stompClient;
 
   const _CourseCard({
     required this.course,
     required this.authToken,
     required this.onCourseAction,
     required this.currentUsername,
+    required this.stompClient,
   });
 
   @override
@@ -1245,6 +1251,7 @@ class _CourseCardState extends State<_CourseCard> {
               course: widget.course,
               authToken: widget.authToken,
               currentUsername: widget.currentUsername,
+              stompClient: widget.stompClient,
             ),
           ),
         );
@@ -1389,12 +1396,14 @@ class CourseDetailScreen extends StatefulWidget {
   final Course course;
   final String authToken;
   final String currentUsername;
+  final StompClient stompClient;
 
   const CourseDetailScreen({
     super.key,
     required this.course,
     required this.authToken,
     required this.currentUsername,
+    required this.stompClient,
   });
 
   @override
@@ -1869,7 +1878,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           : TabBarView(
         controller: _tabController,
         children: [
-       FeedTabView(
+          FeedTabView(
             authToken: widget.authToken,
             courseId: widget.course.id,
             currentUserRole: _currentUserRole,
@@ -1892,15 +1901,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             currentUserRole: _currentUserRole,
             currentUsername: widget.currentUsername,
           ),
-          const Center(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Text(
-                "Чати курсу не підтримуються. \nДоступні лише загальні групові чати на головній вкладці 'Чати'.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 16, height: 1.5),
-              ),
-            ),
+          CourseChatsTabView(
+            authToken: widget.authToken,
+            courseId: widget.course.id,
+            currentUsername: widget.currentUsername,
+            stompClient: widget.stompClient,
           ),
           VideoConferencingTabView(
             authToken: widget.authToken,
@@ -1910,6 +1915,31 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           ),
         ],
       ),
+    );
+  }
+}
+
+class CourseChatsTabView extends StatelessWidget {
+  final String authToken;
+  final int courseId;
+  final String currentUsername;
+  final StompClient stompClient;
+
+  const CourseChatsTabView({
+    super.key,
+    required this.authToken,
+    required this.courseId,
+    required this.currentUsername,
+    required this.stompClient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ChatsMain(
+      authToken: authToken,
+      currentUsername: currentUsername,
+      stompClient: stompClient,
+      filterByCourseId: courseId,
     );
   }
 }

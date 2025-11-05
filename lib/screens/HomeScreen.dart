@@ -3,7 +3,6 @@ import 'package:kurs/screens/Profile.dart';
 import 'package:kurs/screens/ChatsMain.dart';
 import 'CoursesScreen.dart';
 import 'package:stomp_dart_client/stomp.dart';
-import 'package:kurs/utils/fade_page_route.dart';
 
 class HomeScreen extends StatefulWidget {
   final String authToken;
@@ -37,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
       CoursesScreen(
         authToken: widget.authToken,
         currentUsername: widget.username,
+        stompClient: widget.stompClient,
       ),
       const Center(
         child: Text(
@@ -70,42 +70,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    const Color primaryColor = Color(0xFF7C6BA3);
+    const Color indicatorColor = Color(0xFF62567E);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
       body: Row(
         children: <Widget>[
           NavigationRail(
             selectedIndex: _mainPageIndex,
             onDestinationSelected: (int index) {
-              setState(() => _mainPageIndex = index);
+              setState(() {
+                _mainPageIndex = index;
+              });
             },
             minWidth: 100,
-            backgroundColor: scheme.primary,
+            backgroundColor: primaryColor,
             groupAlignment: 0.0,
-            indicatorColor: scheme.secondary,
+            indicatorColor: indicatorColor,
             indicatorShape: const CircleBorder(),
-        leading: Padding(
-          padding: const EdgeInsets.only(top: 8.0, bottom: 12.0),
-          child: IconButton(
-            tooltip: 'Профіль',
-            onPressed: () {
-              Navigator.of(context).push(
-                FadePageRoute(
-                  child: ProfileScreen(
-                    authToken: widget.authToken,
-                    username: widget.username,
-                    stompClient: widget.stompClient,
-                  ),
-                ),
-              );
-            },
-            iconSize: 36,
-            icon: const Icon(Icons.account_circle, color: Colors.white),
-          ),
-        ),
+            leading: Padding(
+              padding: const EdgeInsets.only(top: 16.0),
+              child: IconButton(
+                tooltip: 'Профіль',
+                iconSize: 40,
+                color: Colors.white,
+                icon: const Icon(Icons.account_circle),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProfileScreen(
+                        authToken: widget.authToken,
+                        username: widget.username,
+                        stompClient: widget.stompClient,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
             destinations: <NavigationRailDestination>[
               NavigationRailDestination(
                 icon: _buildNavIcon(Icons.chat_bubble_outline, _mainPageIndex == 0),
@@ -127,15 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeIn,
-              child: KeyedSubtree(
-                key: ValueKey(_mainPageIndex),
-                child: _screens[_mainPageIndex],
-              ),
-            ),
+            child: _screens[_mainPageIndex],
           ),
         ],
       ),

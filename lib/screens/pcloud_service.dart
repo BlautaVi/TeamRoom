@@ -1,10 +1,44 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 
 class PCloudService {
-  //final String _apiBaseUrl = "https://team-room-back.onrender.com/api";
   final String _apiBaseUrl = "http://localhost:8080/api";
+
+  Future<String?> getDirectImageUrl(String publicUrl) async {
+    try {
+      final uri = Uri.parse(publicUrl);
+      final code = uri.queryParameters['code'];
+      if (code == null) {
+        print("PCloud URL не містить 'code': $publicUrl");
+        return null;
+      }
+
+      String apiHost = (uri.host == 'e.pcloud.link')
+          ? 'eapi.pcloud.com'
+          : 'api.pcloud.com';
+
+      final apiUrl = Uri.https(apiHost, '/getpublinkdownload', {'code': code});
+      final apiResponse = await http.get(apiUrl);
+
+      if (apiResponse.statusCode == 200) {
+        final jsonResponse = jsonDecode(apiResponse.body);
+        if (jsonResponse['result'] == 0) {
+          final path = jsonResponse['path'] as String?;
+          final hosts = (jsonResponse['hosts'] as List?) ?? [];
+          if (hosts.isNotEmpty && path != null) {
+            return 'https://${hosts.first}$path';
+          }
+        } else {
+          print("PCloud API error: ${jsonResponse['error']}");
+        }
+      }
+    } catch (e) {
+      print("Помилка обробки URL $publicUrl: $e");
+    }
+    return null;
+  }
 
   Future<String> uploadFileAndGetPublicLink({
     required PlatformFile file,
@@ -39,9 +73,9 @@ class PCloudService {
   }
 
   Future<Map<String, dynamic>> _getUploadLink(
-      String token,
-      String purpose,
-      ) async {
+    String token,
+    String purpose,
+  ) async {
     final uri = Uri.parse(
       '$_apiBaseUrl/cloud-storage/get-upload-link?purpose=$purpose',
     );
@@ -61,11 +95,16 @@ class PCloudService {
   }
 
   Future<String?> _uploadFileToCloud(
-      String uploadUrl,
-      PlatformFile file,
-      ) async {
+    String uploadUrl,
+    PlatformFile file,
+  ) async {
     print("--- Attempting to upload to PCloud URL: $uploadUrl");
     final request = http.MultipartRequest('POST', Uri.parse(uploadUrl));
+
+    if (file.path == null) {
+      throw Exception("File path is null, cannot upload.");
+    }
+
     request.files.add(
       await http.MultipartFile.fromPath(
         'file',
@@ -106,7 +145,8 @@ class PCloudService {
           }
         }
         print(
-            "--- PCloud upload response structure unexpected (missing metadata or fileid)");
+          "--- PCloud upload response structure unexpected (missing metadata or fileid)",
+        );
         throw Exception('Не вдалося отримати fileId з відповіді PCloud.');
       } catch (e) {
         print("--- Error processing PCloud response: $e");

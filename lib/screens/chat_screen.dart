@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:kurs/screens/pcloud_service.dart';
 import 'dart:convert';
 import 'package:stomp_dart_client/stomp.dart';
-import 'package:stomp_dart_client/stomp_config.dart';
 import 'package:stomp_dart_client/stomp_frame.dart';
 import 'package:kurs/classes/chat_models.dart';
 import 'package:kurs/classes/chat_service.dart';
@@ -15,7 +15,6 @@ import 'package:kurs/screens/assignment_screens.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
-import 'pcloud_service.dart';
 
 
 class ChatScreen extends StatefulWidget {
@@ -60,7 +59,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
   late String _currentChatName;
   String? _currentChatPhotoUrl;
+  String? _directChatPhotoUrl;
   final ImagePicker _picker = ImagePicker();
+
+  List<ChatMessage> _pinnedMessages = [];
+  bool _isLoadingPinned = true;
 
   @override
   void initState() {
@@ -95,25 +98,62 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _resolvePhotoUrl(String? publicUrl) async {
+    if (publicUrl == null || publicUrl.isEmpty) {
+      if (mounted) setState(() => _directChatPhotoUrl = null);
+      return;
+    }
+
+    try {
+      final directUrl = await PCloudService().getDirectImageUrl(publicUrl);
+      if (mounted) {
+        setState(() {
+          _directChatPhotoUrl = directUrl;
+        });
+      }
+    } catch (e) {
+      print("Failed to resolve chat photo URL: $e");
+      if (mounted) setState(() => _directChatPhotoUrl = null);
+    }
+  }
+
+
   Future<void> _loadInitialData() async {
     if (!mounted) return;
     try {
-      final results = await Future.wait([
-        _chatService.getMyChatMembership(widget.authToken, widget.chatId, widget.currentUsername),
-        _chatService.getChatDetails(widget.authToken, widget.chatId),
-        _chatService.getMessages(
+      _loadPinnedMessages();
+
+      // 1) Load chat details first to know type
+      final chat = await _chatService.getChatDetails(widget.authToken, widget.chatId);
+
+      // 2) Load membership only for non-private chats
+      ChatMember myMembership;
+      if (chat.type == ChatType.PRIVATE) {
+        myMembership = ChatMember(
+          username: widget.currentUsername,
+          role: ChatRole.MEMBER,
+          lastReadMessageId: 0,
+        );
+      } else {
+        myMembership = await _chatService.getMyChatMembership(
           widget.authToken,
           widget.chatId,
-          _messagePageSize,
-          messageId: null,
-          limitAfter: 0,
-        ),
-      ]);
+          widget.currentUsername,
+        );
+      }
+
+      // 3) Load messages
+      final messages = await _chatService.getMessages(
+        widget.authToken,
+        widget.chatId,
+        _messagePageSize,
+        messageId: null,
+        limitAfter: 0,
+      );
 
       if (mounted) {
-        _myMembership = results[0] as ChatMember;
-        _chat = results[1] as Chat;
-        final messages = results[2] as List<ChatMessage>;
+        _myMembership = myMembership;
+        _chat = chat;
 
         _messages.clear();
         _messages.addAll(messages.reversed);
@@ -129,6 +169,8 @@ class _ChatScreenState extends State<ChatScreen> {
           _currentChatName = _chat?.name ?? widget.chatName;
           _currentChatPhotoUrl = _chat?.photoUrl;
         });
+
+        _resolvePhotoUrl(_currentChatPhotoUrl);
         _markAsRead();
       }
     } catch (e) {
@@ -140,6 +182,26 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
+
+  Future<void> _loadPinnedMessages() async {
+    if (!mounted) return;
+    setState(() => _isLoadingPinned = true);
+    try {
+      final pinned = await _chatService.getPinnedMessages(widget.authToken, widget.chatId);
+      if (mounted) {
+        setState(() {
+          _pinnedMessages = pinned;
+          _isLoadingPinned = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingPinned = false);
+        print("Помилка завантаження закріплених: $e");
+      }
+    }
+  }
+
 
   Future<void> _loadMoreMessages() async {
     if (_messages.isEmpty) {
@@ -308,7 +370,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _showEditChatDialog() async {
     final nameController = TextEditingController(text: _currentChatName);
     File? newImageFile;
-    String? tempPhotoUrl = _currentChatPhotoUrl;
+    String? tempPhotoUrl = _directChatPhotoUrl;
 
     final bool? success = await showDialog<bool>(
       context: context,
@@ -329,10 +391,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           backgroundColor: Colors.grey.shade300,
                           backgroundImage: newImageFile != null
                               ? FileImage(newImageFile!)
-                              : (tempPhotoUrl != null
-                              ? NetworkImage(tempPhotoUrl!)
-                              : null) as ImageProvider?,
-                          child: newImageFile == null && tempPhotoUrl == null
+                              : (tempPhotoUrl != null && tempPhotoUrl.isNotEmpty
+                                  ? NetworkImage(tempPhotoUrl)
+                                  : null),
+                          child: newImageFile == null && (tempPhotoUrl == null || tempPhotoUrl.isEmpty)
                               ? const Icon(Icons.group, size: 50, color: Colors.grey)
                               : null,
                         ),
@@ -398,6 +460,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           purpose: 'chat-photo',
                         );
                       }
+
                       await _chatService.patchChat(
                         widget.authToken,
                         widget.chatId,
@@ -410,6 +473,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           _currentChatName = newName;
                           _currentChatPhotoUrl = finalPhotoUrl;
                         });
+                        _resolvePhotoUrl(finalPhotoUrl);
                         Navigator.pop(dialogContext, true);
                       }
                     } catch (e) {
@@ -451,21 +515,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final bool isViewer = _myMembership.role == ChatRole.VIEWER;
     final bool canEditChat = (_myMembership.role == ChatRole.OWNER || _myMembership.role == ChatRole.ADMIN) &&
         (_chat?.type == ChatType.GROUP);
+    final bool canPin = (_myMembership.role == ChatRole.MODERATOR || _myMembership.role == ChatRole.ADMIN || _myMembership.role == ChatRole.OWNER) &&
+        (_chat?.type != ChatType.PRIVATE);
 
     return Scaffold(
       appBar: AppBar(
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: CircleAvatar(
-            backgroundImage: (_currentChatPhotoUrl != null && _currentChatPhotoUrl!.isNotEmpty)
-                ? NetworkImage(_currentChatPhotoUrl!)
-                : null,
-            child: (_currentChatPhotoUrl == null || _currentChatPhotoUrl!.isEmpty)
-                ? Text(_currentChatName.isNotEmpty ? _currentChatName[0].toUpperCase() : '?')
-                : null,
-          ),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundImage: (_directChatPhotoUrl != null && _directChatPhotoUrl!.isNotEmpty)
+                  ? NetworkImage(_directChatPhotoUrl!)
+                  : null,
+              child: (_directChatPhotoUrl == null || _directChatPhotoUrl!.isEmpty)
+                  ? Text(_currentChatName.isNotEmpty ? _currentChatName[0].toUpperCase() : '?')
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Text(_currentChatName),
+          ],
         ),
-        title: Text(_currentChatName),
         backgroundColor: primaryColor,
         foregroundColor: Colors.white,
         actions: [
@@ -545,6 +614,13 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
       body: Column(
         children: [
+          _PinnedMessageBar(
+            isLoading: _isLoadingPinned,
+            messages: _pinnedMessages,
+            onUnpin: (messageId) {
+              if (canPin) _sendUnpin(messageId);
+            },
+          ),
           Expanded(
             child: Container(
               color: Colors.grey.shade50,
@@ -600,7 +676,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     isMe: isMe,
                     primaryColor: primaryColor,
                     myRole: _myMembership.role,
-                    onLongPress: () => _showMessageOptions(context, message),
+                    onLongPress: () => _showMessageOptions(context, message, canPin: canPin),
                   );
                 },
               ),
@@ -658,16 +734,18 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showMessageOptions(BuildContext context, ChatMessage message) {
+  void _showMessageOptions(BuildContext context, ChatMessage message, {required bool canPin}) {
     if (message.isSending || message.isDeleted) return;
 
     final bool isMe = message.username == widget.currentUsername;
     final bool canEdit = isMe && message.type == MessageType.USER_MESSAGE;
-
     final bool canDelete = isMe ||
         _myMembership.role == ChatRole.MODERATOR ||
         _myMembership.role == ChatRole.ADMIN ||
         _myMembership.role == ChatRole.OWNER;
+
+    final bool isAlreadyPinned = _pinnedMessages.any((m) => m.id == message.id);
+    final bool canPinThis = canPin && message.type == MessageType.USER_MESSAGE && message.id > 0;
 
     showModalBottomSheet(
       context: context,
@@ -691,6 +769,19 @@ class _ChatScreenState extends State<ChatScreen> {
                   onTap: () {
                     Navigator.pop(builderContext);
                     _sendDelete(message.id);
+                  },
+                ),
+              if (canPinThis)
+                ListTile(
+                  leading: Icon(isAlreadyPinned ? Icons.push_pin : Icons.push_pin_outlined),
+                  title: Text(isAlreadyPinned ? 'Відкріпити' : 'Закріпити'),
+                  onTap: () {
+                    Navigator.pop(builderContext);
+                    if (isAlreadyPinned) {
+                      _sendUnpin(message.id);
+                    } else {
+                      _sendPin(message.id);
+                    }
                   },
                 ),
             ],
@@ -807,6 +898,9 @@ class _ChatScreenState extends State<ChatScreen> {
             break;
           case 'MESSAGE_DELETED':
             _handleMessageDelete(payload);
+            break;
+          case 'PIN_UPDATE':
+            _loadPinnedMessages();
             break;
           case 'START_TYPING':
             if (payload['username'] != widget.currentUsername) {
@@ -963,16 +1057,16 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _sendReaction(int messageId, String emoji) {
-    if (widget.stompClient.connected != true) return;
-    widget.stompClient.send(
-      destination: '/app/chat/${widget.chatId}/react',
-      body: jsonEncode({
-        'messageId': messageId,
-        'emoji': emoji,
-      }),
-    );
-  }
+  // void _sendReaction(int messageId, String emoji) {
+  //   if (widget.stompClient.connected != true) return;
+  //   widget.stompClient.send(
+  //     destination: '/app/chat/${widget.chatId}/react',
+  //     body: jsonEncode({
+  //       'messageId': messageId,
+  //       'emoji': emoji,
+  //     }),
+  //   );
+  // }
 
   void _sendDelete(int messageId) {
     if (widget.stompClient.connected != true) return;
@@ -982,6 +1076,24 @@ class _ChatScreenState extends State<ChatScreen> {
         'messageId': messageId,
       }),
     );
+  }
+
+  void _sendPin(int messageId) async {
+    if (messageId <= 0) return;
+    try {
+      await _chatService.pinMessage(widget.authToken, widget.chatId, messageId);
+      _loadPinnedMessages();
+    } catch (e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Помилка закріплення: $e'), backgroundColor: Colors.red));
+    }
+  }
+  void _sendUnpin(int messageId) async {
+    try {
+      await _chatService.unpinMessage(widget.authToken, widget.chatId, messageId);
+      _loadPinnedMessages();
+    } catch (e) {
+      if(mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Помилка відкріплення: $e'), backgroundColor: Colors.red));
+    }
   }
 
   void _markAsRead() {
@@ -1267,6 +1379,61 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
           ),
         );
       },
+    );
+  }
+}
+class _PinnedMessageBar extends StatelessWidget {
+  final bool isLoading;
+  final List<ChatMessage> messages;
+  final Function(int messageId) onUnpin;
+
+  const _PinnedMessageBar({
+    required this.isLoading,
+    required this.messages,
+    required this.onUnpin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(8.0),
+        color: Colors.grey.shade200,
+        child: const Center(
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (messages.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final message = messages.first;
+
+    return Container(
+      color: Colors.blue.shade50,
+      child: ListTile(
+        leading: Icon(Icons.push_pin_outlined, color: Colors.blue.shade700, size: 20),
+        title: Text(
+          message.content,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 14),
+        ),
+        subtitle: Text(
+          message.username,
+          style: TextStyle(fontSize: 12, color: Colors.blue.shade900),
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.close, size: 20, color: Colors.blue.shade700),
+          onPressed: () => onUnpin(message.id),
+        ),
+        dense: true,
+      ),
     );
   }
 }

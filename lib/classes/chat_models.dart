@@ -1,5 +1,4 @@
 import 'package:intl/intl.dart';
-
 enum ChatType {
   PRIVATE,
   GROUP,
@@ -52,11 +51,23 @@ class Chat {
   });
 
   factory Chat.fromJson(Map<String, dynamic> json) {
+    final parsedType = _parseChatType(json['type']);
+    final rawName = (json['name'] as String?)?.trim();
+    final resolvedName = (rawName == null || rawName.isEmpty)
+        ? (
+            parsedType == ChatType.COURSE_CHAT || parsedType == ChatType.MAIN_COURSE_CHAT
+                ? 'чат курсу'
+                : parsedType == ChatType.PRIVATE
+                    ? 'Приватний чат'
+                    : 'Невідомий чат'
+          )
+        : rawName;
+
     return Chat(
       id: json['id'] ?? 0,
-      name: json['name'] ?? 'Невідомий чат',
+      name: resolvedName,
       photoUrl: json['photoUrl'],
-      type: _parseChatType(json['type']),
+      type: parsedType,
       lastMessage: json['lastMessage'] != null
           ? ChatMessage.fromJson(json['lastMessage'])
           : null,
@@ -154,6 +165,7 @@ class ChatMessage {
   final DateTime sentAt;
   final DateTime? editedAt;
   bool isDeleted;
+  bool isPinned;
   final List<RelatedEntity> relatedEntities;
   final List<Media> media;
 
@@ -170,6 +182,7 @@ class ChatMessage {
     required this.sentAt,
     this.editedAt,
     this.isDeleted = false,
+    this.isPinned = false,
     this.relatedEntities = const [],
     this.media = const [],
     this.reactions = const {},
@@ -189,6 +202,7 @@ class ChatMessage {
           ? DateTime.tryParse(json['editedAt'])
           : null,
       isDeleted: json['isDeleted'] ?? false,
+      isPinned: json['isPinned'] ?? false,
       relatedEntities: (json['relatedEntities'] as List? ?? [])
           .map((e) => RelatedEntity.fromJson(e))
           .toList(),

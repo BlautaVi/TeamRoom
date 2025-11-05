@@ -42,12 +42,21 @@ class ChatService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      final int? newChatId = data['chatId'] ?? data['id'];
+
+      if (newChatId == null) {
+        throw Exception('Сервер не повернув ID створеного групового чату у відповіді.');
+      }
+
+      print("Group chat created with temp ID $newChatId. Fetching full details...");
+      return await getChatDetails(token, newChatId);
+
     } else {
       throw _handleErrorResponse(response, 'Не вдалося створити груповий чат');
     }
   }
-
   Future<Chat> createPrivateChat(String token, String otherUsername) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/private'),
@@ -61,7 +70,16 @@ class ChatService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      final int? newChatId = data['chatId'] ?? data['id'];
+
+      if (newChatId == null) {
+        throw Exception('Сервер не повернув ID створеного приватного чату у відповіді.');
+      }
+      print("Private chat created with ID $newChatId. Fetching full details...");
+      return await getChatDetails(token, newChatId);
+
     } else {
       throw _handleErrorResponse(response, 'Не вдалося створити приватний чат');
     }
@@ -251,6 +269,51 @@ class ChatService {
     );
     if (response.statusCode != 200) {
       throw _handleErrorResponse(response, 'Не вдалося передати права власності');
+    }
+  }
+
+  Future<List<ChatMessage>> getPinnedMessages(String token, int chatId) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/pinned'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is List) {
+        return decoded.map((json) => ChatMessage.fromJson(json)).toList();
+      }
+      if (decoded is Map && decoded['messages'] is List) {
+        final List<dynamic> data = decoded['messages'];
+        return data.map((json) => ChatMessage.fromJson(json)).toList();
+      }
+      return [];
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося завантажити закріплені повідомлення');
+    }
+  }
+
+  Future<void> pinMessage(String token, int chatId, int messageId) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/pinned'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode({'messageId': messageId}),
+    );
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw _handleErrorResponse(response, 'Не вдалося закріпити повідомлення');
+    }
+  }
+
+  Future<void> unpinMessage(String token, int chatId, int messageId) async {
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/pinned/$messageId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(response, 'Не вдалося відкріпити повідомлення');
     }
   }
 }
