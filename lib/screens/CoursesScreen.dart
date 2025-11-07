@@ -11,11 +11,12 @@ import 'assignment_screens.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import '../classes/course_models.dart';
-import 'package:webview_windows/webview_windows.dart';
-import 'dart:io' show Platform;
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:kurs/utils/animated_tap_wrapper.dart';
 import 'ChatsMain.dart';
 import 'package:stomp_dart_client/stomp.dart';
+import 'package:webview_windows/webview_windows.dart';
+import 'package:flutter/services.dart';
 
 class CourseService {
   final String _apiBaseUrl = "http://localhost:8080/api";
@@ -3789,24 +3790,54 @@ class VideoConferencingTabView extends StatefulWidget {
 }
 
 class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
-  final _controller = WebviewController();
+  InAppWebViewController? _webViewController;
+  WebviewController? _windowsWebViewController;
   final TextEditingController _roomController = TextEditingController();
 
-  bool _isWebViewInitialized = false;
   bool _isLoading = false;
+  bool _isWindowsWebViewInitialized = false;
   String? _currentRoomUrl;
 
   @override
   void initState() {
     super.initState();
     _roomController.text = 'General';
-    initPlatformState();
+    
+    if (Platform.isWindows) {
+      _initializeWindowsWebView();
+    }
+  }
+  
+  Future<void> _initializeWindowsWebView() async {
+    try {
+      _windowsWebViewController ??= WebviewController();
+      await _windowsWebViewController!.initialize();
+      if (mounted) {
+        setState(() {
+          _isWindowsWebViewInitialized = true;
+        });
+      }
+    } on MissingPluginException catch (e) {
+      debugPrint('MissingPluginException при ініціалізації Windows WebView: $e');
+      if (mounted) {
+        setState(() {
+          _isWindowsWebViewInitialized = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Помилка ініціалізації Windows WebView: $e');
+      if (mounted) {
+        setState(() {
+          _isWindowsWebViewInitialized = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _roomController.dispose();
+    _windowsWebViewController?.dispose();
     super.dispose();
   }
 
@@ -3820,41 +3851,7 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
     return 'teamroom-course-${widget.courseId}-$safeInput';
   }
 
-  Future<void> initPlatformState() async {
-    if (!Platform.isWindows) {
-      setState(() {});
-      return;
-    }
-
-    try {
-      await _controller.initialize();
-      _controller.loadingState.listen((state) {
-        if (mounted) {
-          setState(() {
-            _isLoading = (state == LoadingState.loading);
-          });
-        }
-      });
-
-      if (mounted) {
-        setState(() {
-          _isWebViewInitialized = true;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Не вдалося ініціалізувати WebView: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _joinMeeting() async {
-    if (!_isWebViewInitialized) return;
     if (_roomController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -3868,66 +3865,194 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
     FocusScope.of(context).unfocus();
     final String roomName = _generateRoomName(_roomController.text.trim());
 
-    final String newUrl = 'https://nek1tarch.local:8443/$roomName'
+    final String newUrl = 'https://meet.jit.si/$roomName'
         '#config.prejoinPageEnabled=false'
         '&config.startWithAudioMuted=false'
         '&config.startWithVideoMuted=false'
         '&userInfo.displayName=${Uri.encodeComponent(widget.currentUsername)}'
         '&config.toolbarButtons=["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","invite","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help","mute-everyone"]';
 
-    if (newUrl != _currentRoomUrl) {
-      await _controller.loadUrl(newUrl);
+    if (Platform.isWindows) {
+      if (!_isWindowsWebViewInitialized) {
+        await _initializeWindowsWebView();
+        
+        if (!_isWindowsWebViewInitialized) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Помилка ініціалізації WebView. Переконайтеся, що встановлено Microsoft Edge WebView2 Runtime та перебудуйте проект.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+      }
+      
+      if (_windowsWebViewController == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('WebView контролер не ініціалізовано'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      
       setState(() {
         _currentRoomUrl = newUrl;
+        _isLoading = true;
       });
+      
+      try {
+        await _windowsWebViewController!.loadUrl(newUrl);
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Помилка завантаження: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    if (newUrl != _currentRoomUrl) {
+      setState(() {
+        _currentRoomUrl = newUrl;
+        _isLoading = true;
+      });
+      _webViewController?.loadUrl(
+        urlRequest: URLRequest(url: WebUri(newUrl)),
+      );
     }
   }
 
-  Widget buildContent() {
-    if (!Platform.isWindows) {
-      return const Center(
-        child: Text(
-          'Відеоконференції не підтримуються на цій десктопній платформі.',
-          textAlign: TextAlign.center,
-        ),
-      );
-    }
-
-    if (!_isWebViewInitialized) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 10),
-            Text('Ініціалізація WebView...'),
-          ],
-        ),
-      );
-    }
-
-    if (_currentRoomUrl == null) {
-      return const Center(
-        child: Text(
-          'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
-          textAlign: TextAlign.center,
+  Widget _buildWindowsView() {
+    if (!_isWindowsWebViewInitialized) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.video_call_outlined,
+                size: 64,
+                color: Colors.grey[600],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Відеоконференції',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Stack(
       children: [
-        Webview(_controller),
+        if (_windowsWebViewController != null)
+          Webview(_windowsWebViewController!),
         if (_isLoading)
           Container(
-            color: Colors.black12,
+            color: Colors.white,
             child: const Center(
               child: CircularProgressIndicator(),
+            ),
+          ),
+        if (_currentRoomUrl == null && !_isLoading)
+          const Center(
+            child: Text(
+              'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
+              textAlign: TextAlign.center,
             ),
           ),
       ],
     );
   }
+
+  Widget _buildWebView() {
+    return Stack(
+      children: [
+        InAppWebView(
+          initialUrlRequest: _currentRoomUrl != null
+              ? URLRequest(url: WebUri(_currentRoomUrl!))
+              : null,
+          initialSettings: InAppWebViewSettings(
+            javaScriptEnabled: true,
+            mediaPlaybackRequiresUserGesture: false,
+            allowsInlineMediaPlayback: true,
+            iframeAllow: "camera; microphone",
+          ),
+          onWebViewCreated: (controller) {
+            _webViewController = controller;
+          },
+          onLoadStart: (controller, url) {
+            setState(() => _isLoading = true);
+          },
+          onLoadStop: (controller, url) {
+            setState(() => _isLoading = false);
+          },
+          onLoadError: (controller, url, code, message) {
+            setState(() => _isLoading = false);
+          },
+          onPermissionRequest: (controller, request) async {
+            final resources = request.resources;
+            if (resources.contains(PermissionResourceType.MICROPHONE) ||
+                resources.contains(PermissionResourceType.CAMERA)) {
+              return PermissionResponse(
+                resources: resources,
+                action: PermissionResponseAction.GRANT,
+              );
+            }
+            return PermissionResponse(
+              resources: resources,
+              action: PermissionResponseAction.DENY,
+            );
+          },
+        ),
+        if (_isLoading)
+          Container(
+            color: Colors.white,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        if (_currentRoomUrl == null && !_isLoading)
+          const Center(
+            child: Text(
+              'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -3945,7 +4070,7 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
                     hintText: 'Наприклад, "General" або "Lecture 1"',
                     border: OutlineInputBorder(),
                   ),
-                  enabled: _isWebViewInitialized && !_isLoading,
+                  enabled: !_isLoading,
                   onSubmitted: (_) => _joinMeeting(),
                 ),
               ),
@@ -3953,9 +4078,7 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
               SizedBox(
                 height: 50,
                 child: ElevatedButton.icon(
-                  onPressed: (_isWebViewInitialized && !_isLoading)
-                      ? _joinMeeting
-                      : null,
+                  onPressed: !_isLoading ? _joinMeeting : null,
                   icon: _isLoading
                       ? const SizedBox(
                     width: 20,
@@ -3981,7 +4104,9 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: buildContent(),
+                child: Platform.isWindows
+                    ? _buildWindowsView()
+                    : _buildWebView(),
               ),
             ),
           ),

@@ -1,15 +1,19 @@
-import 'dart:io' show HttpOverrides;
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:kurs/screens/auth.dart';
 import 'package:kurs/theme/app_theme.dart';
 import 'package:kurs/utils/fade_page_route.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'http_overrides.dart';
-import 'dart:io';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = MyHttpOverrides();
-
+  
+  if (Platform.isAndroid) {
+    await AndroidInAppWebViewController.setWebContentsDebuggingEnabled(true);
+  }
+  
   runApp(const MyApp());
 }
 
