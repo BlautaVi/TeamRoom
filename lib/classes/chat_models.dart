@@ -229,7 +229,7 @@ class ChatMessage {
 
     final Map<String, List<String>> reactionsMap = {};
     try {
-      for (var reactionObject in (reactionsJson as List)) {
+      for (var reactionObject in reactionsJson) {
         if (reactionObject is Map) {
           final String? emoji = reactionObject['emoji'] as String?;
           final String? username = reactionObject['username'] as String?;

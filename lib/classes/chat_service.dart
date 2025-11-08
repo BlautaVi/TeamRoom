@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'chat_models.dart';
 
 class ChatService {
@@ -11,12 +12,12 @@ class ChatService {
       final error = jsonDecode(utf8.decode(response.bodyBytes));
       errorMessage = (error is Map && error.containsKey('message'))
           ? error['message']
-          : utf8.decode(response.bodyBytes);
+          : 'Помилка сервера';
     } catch (_) {
-      errorMessage = response.body.isEmpty ? 'Порожня відповідь' : response.body;
+      errorMessage = 'Помилка сервера';
     }
-    print(
-      "Error in $context: Status ${response.statusCode}, Message: $errorMessage",
+    debugPrint(
+      "Error in $context: Status ${response.statusCode}",
     );
     return Exception(
       '$context: $errorMessage (Статус: ${response.statusCode})',

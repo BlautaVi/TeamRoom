@@ -25,6 +25,15 @@ class _LoginScreenState extends State<LoginScreen> {
       final String login = _loginController.text.trim();
       final String password = _passwordController.text.trim();
 
+      if (login.length < 3) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Ім'я повинно мати мінімум 3 символи")),
+          );
+        }
+        return;
+      }
+
       try {
         final response = await http.post(
           Uri.parse("http://localhost:8080/api/auth/login"),
@@ -34,22 +43,29 @@ class _LoginScreenState extends State<LoginScreen> {
             "username": login,
             "password": password,
           }),
-        );
+        ).timeout(const Duration(seconds: 15), onTimeout: () {
+          throw Exception("Час очікування вичерпаний. Спробуйте ще раз.");
+        });
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final authToken = data['jwt'];
           if (authToken != null && authToken is String) {
-            print("Успішна авторизація для користувача: $login");
+            debugPrint("Успішна авторизація для користувача: $login");
 
             final stompConfig = StompConfig(
               url: 'ws://localhost:8080/ws/websocket',
               onConnect: (frame) {
-                print("STOMP client connected (from LoginScreen).");
+                debugPrint("STOMP client connected (from LoginScreen).");
               },
-              onWebSocketError: (e) => print("WebSocket Error: $e"),
+              onWebSocketError: (e) => debugPrint("WebSocket Error: $e"),
+              onStompError: (frame) => debugPrint("STOMP Error: ${frame.body}"),
               stompConnectHeaders: {'Authorization': 'Bearer $authToken'},
               webSocketConnectHeaders: {'Authorization': 'Bearer $authToken'},
+              reconnectDelay: const Duration(seconds: 5),
+              connectionTimeout: const Duration(seconds: 15),
+              heartbeatOutgoing: const Duration(seconds: 10),
+              heartbeatIncoming: const Duration(seconds: 10),
             );
 
             final stompClient = StompClient(config: stompConfig);
@@ -83,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Помилка з'єднання")),
+            SnackBar(content: Text("Помилка з'єднання: ${e.toString().replaceFirst('Exception: ', '')}")),
           );
         }
       }

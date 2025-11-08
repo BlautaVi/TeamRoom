@@ -209,3 +209,15 @@ class AssignmentResponse {
     );
   }
 }
+
+class GradebookData {
+  final List<CourseMember> students;
+  final List<Assignment> assignments;
+  final Map<String, Map<int, AssignmentResponse>> studentResponses;
+
+  GradebookData({
+    required this.students,
+    required this.assignments,
+    required this.studentResponses,
+  });
+}

@@ -255,7 +255,9 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
   }
 
   Future<void> _loadStudentResponseData() async {
-    if (widget.currentUserRole != CourseRole.STUDENT || !mounted) return;
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
+    if (!isStudentOrLeader || !mounted) return;
     setState(() => _isLoadingStudentResponse = true);
 
     try {
@@ -439,7 +441,7 @@ class _AssignmentDetailScreenState extends State<AssignmentDetailScreen> {
     }
   }
 
-  bool get _canSubmit => widget.currentUserRole == CourseRole.STUDENT;
+  bool get _canSubmit => widget.currentUserRole == CourseRole.STUDENT || widget.currentUserRole == CourseRole.LEADER;
 
   bool get _canManage =>
       widget.currentUserRole == CourseRole.PROFESSOR ||
@@ -806,7 +808,9 @@ class _AssignmentResponsesSectionState
   void initState() {
     super.initState();
     _currentStudentResponse = widget.initialStudentResponse;
-    if (widget.currentUserRole != CourseRole.STUDENT) {
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
+    if (!isStudentOrLeader) {
       _loadAllResponses();
     }
   }
@@ -821,8 +825,10 @@ class _AssignmentResponsesSectionState
         });
       }
     }
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
     if (widget.assignmentId != oldWidget.assignmentId &&
-        widget.currentUserRole != CourseRole.STUDENT) {
+        !isStudentOrLeader) {
       _loadAllResponses();
     }
   }
@@ -836,16 +842,19 @@ class _AssignmentResponsesSectionState
   }
 
   void forceReload() {
-    if (widget.currentUserRole != CourseRole.STUDENT) {
-      _loadAllResponses();
-    } else {
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
+    if (isStudentOrLeader) {
       (context.findAncestorStateOfType<_AssignmentDetailScreenState>())
           ?._loadStudentResponseData();
+    } else {
+      _loadAllResponses();
     }
   }
-
   void _loadAllResponses() {
-    if (mounted && widget.currentUserRole != CourseRole.STUDENT) {
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
+    if (mounted && !isStudentOrLeader) {
       setState(() {
         _isLoadingAllResponses = true;
         _allResponsesFuture = CourseService()
@@ -869,7 +878,9 @@ class _AssignmentResponsesSectionState
 
   @override
   Widget build(BuildContext context) {
-    if (widget.currentUserRole == CourseRole.STUDENT) {
+    final bool isStudentOrLeader = widget.currentUserRole == CourseRole.STUDENT ||
+        widget.currentUserRole == CourseRole.LEADER;
+    if (isStudentOrLeader) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

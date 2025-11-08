@@ -3,6 +3,8 @@ import 'package:kurs/screens/Profile.dart';
 import 'package:kurs/screens/ChatsMain.dart';
 import 'CoursesScreen.dart';
 import 'package:stomp_dart_client/stomp.dart';
+import 'package:kurs/classes/notification_service.dart';
+import 'package:kurs/classes/notification_models.dart';
 
 class HomeScreen extends StatefulWidget {
   final String authToken;
@@ -23,10 +25,17 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _mainPageIndex = 0;
   late final List<Widget> _screens;
+  late NotificationService _notificationService;
 
   @override
   void initState() {
     super.initState();
+    _notificationService = NotificationService(
+      stompClient: widget.stompClient,
+      context: context,
+    );
+    _notificationService.subscribe();
+
     _screens = [
       ChatsMain(
         authToken: widget.authToken,
@@ -45,6 +54,12 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     ];
+  }
+
+  @override
+  void dispose() {
+    _notificationService.unsubscribe();
+    super.dispose();
   }
 
   Widget _buildNavIcon(IconData icon, bool isSelected) {
