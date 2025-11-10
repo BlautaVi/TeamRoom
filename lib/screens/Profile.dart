@@ -7,6 +7,8 @@ import 'package:kurs/screens/HomeScreen.dart';
 import 'auth.dart';
 import 'package:stomp_dart_client/stomp.dart';
 import 'package:kurs/utils/fade_page_route.dart';
+import 'package:kurs/screens/CoursesScreen.dart';
+import 'package:kurs/classes/course_models.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -141,6 +143,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
     );
   }
+
+  Future<void> _showStatisticsDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: _StatisticsDialogContent(
+            authToken: widget.authToken,
+            username: widget.username,
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _resolveAndSetDisplayableUrl(String publicUrl) async {
     try {
       final finalUrl = await _getDisplayableUrl(publicUrl);
@@ -334,10 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           IconButton(
             icon: const Icon(Icons.bar_chart, color: Colors.white),
             tooltip: 'Статистика',
-            onPressed: () {
-              print("Перехід на сторінку статистики");
-              _showSuccessSnackBar("Ця функція буде доступна згодом");
-            },
+            onPressed: _showStatisticsDialog,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.white),
@@ -460,6 +478,479 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+    );
+  }
+}
+
+class _StatisticsDialogContent extends StatefulWidget {
+  final String authToken;
+  final String username;
+
+  const _StatisticsDialogContent({
+    required this.authToken,
+    required this.username,
+  });
+
+  @override
+  State<_StatisticsDialogContent> createState() => _StatisticsDialogContentState();
+}
+
+class _StatisticsDialogContentState extends State<_StatisticsDialogContent> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  
+  List<Course> _courses = [];
+  Map<int, List<Assignment>> _assignmentsByCourse = {};
+  Map<int, List<AssignmentResponse>> _responsesByCourse = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatistics();
+  }
+
+  Future<void> _loadStatistics() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final courseService = CourseService();
+      
+      final coursesResponse = await http.get(
+        Uri.parse('http://localhost:8080/api/course'),
+        headers: {'Authorization': 'Bearer ${widget.authToken}'},
+      );
+
+      if (coursesResponse.statusCode != 200) {
+        throw Exception('Не вдалося завантажити курси');
+      }
+
+      final coursesData = jsonDecode(utf8.decode(coursesResponse.bodyBytes));
+      List<Course> courses;
+      
+      if (coursesData is List) {
+        courses = coursesData.map((c) => Course.fromJson(c)).toList();
+      } else if (coursesData is Map && coursesData['courses'] is List) {
+        courses = (coursesData['courses'] as List)
+            .map((c) => Course.fromJson(c))
+            .toList();
+      } else {
+        courses = [];
+      }
+
+      final List<Course> studentCourses = [];
+      
+      for (var course in courses) {
+        try {
+          // Отримуємо роль користувача в курсі
+          final members = await courseService.getCourseMembers(
+            widget.authToken,
+            course.id,
+          );
+          
+          final myMembership = members.firstWhere(
+            (m) => m.username == widget.username,
+            orElse: () => CourseMember(
+              username: widget.username,
+              role: CourseRole.VIEWER,
+            ),
+          );
+          
+          // Фільтруємо - показуємо тільки курси де користувач STUDENT або LEADER
+          if (myMembership.role != CourseRole.STUDENT && 
+              myMembership.role != CourseRole.LEADER) {
+            debugPrint('Skipping course ${course.name} - role: ${myMembership.role}');
+            continue;
+          }
+          
+          studentCourses.add(course);
+          
+          final assignments = await courseService.getAssignments(
+            widget.authToken,
+            course.id,
+          );
+          _assignmentsByCourse[course.id] = assignments;
+
+          final responses = await courseService.getAllMyAssignmentResponses(
+            widget.authToken,
+            course.id,
+          );
+          _responsesByCourse[course.id] = responses;
+          
+          // Логування для перевірки даних
+          debugPrint('Course: ${course.name}, Role: ${myMembership.role}, '
+              'Assignments: ${assignments.length}, Responses: ${responses.length}');
+          for (var response in responses) {
+            debugPrint('Response: id=${response.id}, assignmentId=${response.assignmentId}, '
+                'isGraded=${response.isGraded}, grade=${response.grade}, '
+                'isReturned=${response.isReturned}');
+          }
+        } catch (e) {
+          debugPrint('Error loading course ${course.id}: $e');
+          _assignmentsByCourse[course.id] = [];
+          _responsesByCourse[course.id] = [];
+        }
+      }
+      
+      courses = studentCourses;
+
+      if (mounted) {
+        setState(() {
+          _courses = courses;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Помилка завантаження статистики: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: 600,
+        maxHeight: 700,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(16),
+                topRight: Radius.circular(16),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.bar_chart, color: Colors.white, size: 28),
+                const SizedBox(width: 12),
+                const Text(
+                  'Моя статистика',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: _isLoading
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : _errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _courses.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.school_outlined,
+                                    size: 64,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Ви ще не зареєстровані\nв жодному курсі',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _buildStatisticsList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticsList() {
+    return ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.all(20),
+      children: [
+        _buildOverallStats(),
+        const SizedBox(height: 20),
+        const Text(
+          'Статистика по курсах:',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ..._courses.map((course) => _buildCourseCard(course)),
+      ],
+    );
+  }
+
+  Widget _buildOverallStats() {
+    int totalAssignments = 0;
+    int totalResponses = 0;
+    double totalGrade = 0;
+    int gradedCount = 0;
+
+    for (var course in _courses) {
+      final assignments = _assignmentsByCourse[course.id] ?? [];
+      final responses = _responsesByCourse[course.id] ?? [];
+      
+      totalAssignments += assignments.length;
+      totalResponses += responses.length;
+      
+      for (var response in responses) {
+        if (response.isGraded && response.grade != null) {
+          gradedCount++;
+          totalGrade += response.grade!;
+        }
+      }
+    }
+
+    final avgGrade = gradedCount > 0 
+        ? (totalGrade / gradedCount).toStringAsFixed(1) 
+        : '-';
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text(
+                  'Загальна статистика',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (gradedCount == 0 && totalResponses > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Tooltip(
+                      message: 'Роботи ще не оцінені викладачем',
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  Icons.class_outlined,
+                  'Курсів',
+                  _courses.length.toString(),
+                  Colors.blue,
+                ),
+                _buildStatItem(
+                  Icons.assignment_outlined,
+                  'Завдань',
+                  totalAssignments.toString(),
+                  Colors.orange,
+                ),
+                _buildStatItem(
+                  Icons.check_circle_outline,
+                  'Здано',
+                  totalResponses.toString(),
+                  Colors.green,
+                ),
+                _buildStatItem(
+                  Icons.star_outline,
+                  gradedCount > 0 ? 'Середній бал' : 'Не оцінено',
+                  avgGrade,
+                  gradedCount > 0 ? Colors.purple : Colors.grey,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(IconData icon, String label, String value, Color color) {
+    return Column(
+      children: [
+        Icon(icon, size: 32, color: color),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCourseCard(Course course) {
+    final assignments = _assignmentsByCourse[course.id] ?? [];
+    final responses = _responsesByCourse[course.id] ?? [];
+    
+    int gradedCount = 0;
+    double totalGrade = 0;
+    
+    for (var response in responses) {
+      if (response.isGraded && response.grade != null) {
+        gradedCount++;
+        totalGrade += response.grade!;
+      }
+    }
+
+    final avgGrade = gradedCount > 0 
+        ? (totalGrade / gradedCount).toStringAsFixed(1) 
+        : '-';
+    
+    final completionRate = assignments.isNotEmpty
+        ? ((responses.length / assignments.length) * 100).toStringAsFixed(0)
+        : '0';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: Text(
+                    course.name[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        course.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${responses.length} / ${assignments.length} завдань здано',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: assignments.isNotEmpty ? responses.length / assignments.length : 0,
+              backgroundColor: Colors.grey[200],
+              valueColor: AlwaysStoppedAnimation<Color>(
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.trending_up, size: 18, color: Colors.green),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Виконано: $completionRate%',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.grade, size: 18, color: Colors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Середній бал: $avgGrade',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

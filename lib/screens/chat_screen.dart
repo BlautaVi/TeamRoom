@@ -18,6 +18,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:kurs/theme/app_theme.dart';
+
 class ChatScreen extends StatefulWidget {
   final String authToken;
   final int chatId;
@@ -100,17 +101,15 @@ class _ChatScreenState extends State<ChatScreen> {
     if (widget.stompClient.connected != true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Не вдалося надіслати реакцію. Немає з\'єднання.')),
+          content: Text('Не вдалося надіслати реакцію. Немає з\'єднання.'),
+        ),
       );
       return;
     }
 
     widget.stompClient.send(
       destination: '/app/chat/${widget.chatId}/react',
-      body: jsonEncode({
-        'messageId': messageId,
-        'emoji': emoji,
-      }),
+      body: jsonEncode({'messageId': messageId, 'emoji': emoji}),
     );
     setState(() {
       final index = _messages.indexWhere((m) => m.id == messageId);
@@ -135,7 +134,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200 &&
+            _scrollController.position.maxScrollExtent - 200 &&
         !_isLoadingMore &&
         _hasMoreMessages) {
       _loadMoreMessages();
@@ -166,8 +165,10 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       _loadPinnedMessages();
 
-      final chat =
-      await _chatService.getChatDetails(widget.authToken, widget.chatId);
+      final chat = await _chatService.getChatDetails(
+        widget.authToken,
+        widget.chatId,
+      );
 
       ChatMember myMembership;
       if (chat.type == ChatType.PRIVATE) {
@@ -215,7 +216,7 @@ class _ChatScreenState extends State<ChatScreen> {
         setState(() {
           _isLoading = false;
           _error =
-          'Помилка завантаження чату: ${e.toString().replaceFirst("Exception: ", "")}';
+              'Помилка завантаження чату: ${e.toString().replaceFirst("Exception: ", "")}';
         });
       }
     }
@@ -223,10 +224,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadPinnedMessages() async {
     if (!mounted) return;
+
     setState(() => _isLoadingPinned = true);
     try {
-      final pinned =
-      await _chatService.getPinnedMessages(widget.authToken, widget.chatId);
+      final pinned = await _chatService.getPinnedMessages(
+        widget.authToken,
+        widget.chatId,
+      );
       if (mounted) {
         setState(() {
           _pinnedMessages = pinned;
@@ -235,8 +239,12 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoadingPinned = false);
-        print("Помилка завантаження закріплених: $e");
+        setState(() {
+          _pinnedMessages = [];
+          _isLoadingPinned = false;
+        });
+        // Silently handle errors - user can still use the chat even if pinned messages can't be loaded
+        print("Помилка завантаження закріплених повідомлень: $e");
       }
     }
   }
@@ -282,7 +290,8 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Помилка завантаження старих повідомлень: ${e.toString().replaceFirst("Exception: ", "")}'),
+              'Помилка завантаження старих повідомлень: ${e.toString().replaceFirst("Exception: ", "")}',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -296,11 +305,13 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Видалити чат?'),
         content: Text(
-            'Ви впевнені, що хочете НАЗАВЖДИ видалити чат "$_currentChatName"? Цю дію неможливо скасувати.'),
+          'Ви впевнені, що хочете НАЗАВЖДИ видалити чат "$_currentChatName"? Цю дію неможливо скасувати.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Скасувати')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Скасувати'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Видалити', style: TextStyle(color: Colors.red)),
@@ -319,8 +330,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text('Помилка видалення: $e'),
-                backgroundColor: Colors.red),
+              content: Text('Помилка видалення: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -332,12 +344,14 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Покинути чат?'),
-        content:
-        Text('Ви впевнені, що хочете покинути чат "$_currentChatName"?'),
+        content: Text(
+          'Ви впевнені, що хочете покинути чат "$_currentChatName"?',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Скасувати')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Скасувати'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Покинути', style: TextStyle(color: Colors.red)),
@@ -355,8 +369,7 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Помилка: $e'), backgroundColor: Colors.red),
+            SnackBar(content: Text('Помилка: $e'), backgroundColor: Colors.red),
           );
         }
       }
@@ -371,16 +384,19 @@ class _ChatScreenState extends State<ChatScreen> {
         content: const Text('Ця дія видалить повідомлення з чату.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, null),
-              child: const Text('Скасувати')),
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text('Скасувати'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Тільки для мене'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Для мене та співрозмовника',
-                style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Для мене та співрозмовника',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -388,8 +404,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (clearForBoth != null && mounted) {
       try {
-        await _chatService.clearPrivateChat(widget.authToken, widget.chatId,
-            clearForBoth: clearForBoth);
+        await _chatService.clearPrivateChat(
+          widget.authToken,
+          widget.chatId,
+          clearForBoth: clearForBoth,
+        );
         if (mounted) {
           _loadInitialData();
         }
@@ -397,8 +416,9 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-                content: Text('Помилка очищення: $e'),
-                backgroundColor: Colors.red),
+              content: Text('Помилка очищення: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -444,14 +464,19 @@ class _ChatScreenState extends State<ChatScreen> {
                           backgroundImage: newImageFile != null
                               ? FileImage(newImageFile!)
                               : (tempPhotoUrl != null &&
-                              tempPhotoUrl!.isNotEmpty
-                              ? NetworkImage(tempPhotoUrl!)
-                              : null) as ImageProvider?,
-                          child: newImageFile == null &&
-                              (tempPhotoUrl == null ||
-                                  tempPhotoUrl!.isEmpty)
-                              ? const Icon(Icons.group,
-                              size: 50, color: Colors.grey)
+                                            tempPhotoUrl!.isNotEmpty
+                                        ? NetworkImage(tempPhotoUrl!)
+                                        : null)
+                                    as ImageProvider?,
+                          child:
+                              newImageFile == null &&
+                                  (tempPhotoUrl == null ||
+                                      tempPhotoUrl!.isEmpty)
+                              ? const Icon(
+                                  Icons.group,
+                                  size: 50,
+                                  color: Colors.grey,
+                                )
                               : null,
                         ),
                         Positioned(
@@ -461,22 +486,26 @@ class _ChatScreenState extends State<ChatScreen> {
                             onTap: isSaving
                                 ? null
                                 : () async {
-                              final XFile? pickedFile =
-                              await _picker.pickImage(
-                                  source: ImageSource.gallery,
-                                  imageQuality: 80);
-                              if (pickedFile != null) {
-                                setDialogState(() {
-                                  newImageFile = File(pickedFile.path);
-                                  tempPhotoUrl = null;
-                                });
-                              }
-                            },
+                                    final XFile? pickedFile = await _picker
+                                        .pickImage(
+                                          source: ImageSource.gallery,
+                                          imageQuality: 80,
+                                        );
+                                    if (pickedFile != null) {
+                                      setDialogState(() {
+                                        newImageFile = File(pickedFile.path);
+                                        tempPhotoUrl = null;
+                                      });
+                                    }
+                                  },
                             child: const CircleAvatar(
                               radius: 18,
                               backgroundColor: Color(0xFFBFB8D1),
-                              child: Icon(Icons.edit,
-                                  color: Color(0xFF62567E), size: 18),
+                              child: Icon(
+                                Icons.edit,
+                                color: Color(0xFF62567E),
+                                size: 18,
+                              ),
                             ),
                           ),
                         ),
@@ -485,7 +514,9 @@ class _ChatScreenState extends State<ChatScreen> {
                     const SizedBox(height: 20),
                     TextField(
                       controller: nameController,
-                      decoration: const InputDecoration(labelText: 'Назва чату'),
+                      decoration: const InputDecoration(
+                        labelText: 'Назва чату',
+                      ),
                       autofocus: true,
                       enabled: !isSaving,
                     ),
@@ -503,70 +534,76 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: isSaving
                       ? null
                       : () async {
-                    final newName = nameController.text.trim();
-                    if (newName.isEmpty) return;
+                          final newName = nameController.text.trim();
+                          if (newName.isEmpty) return;
 
-                    setDialogState(() => isSaving = true);
-                    final scaffoldMessenger =
-                    ScaffoldMessenger.of(dialogContext);
+                          setDialogState(() => isSaving = true);
+                          final scaffoldMessenger = ScaffoldMessenger.of(
+                            dialogContext,
+                          );
 
-                    try {
-                      String? finalPhotoUrl = _currentChatPhotoUrl;
+                          try {
+                            String? finalPhotoUrl = _currentChatPhotoUrl;
 
-                      if (newImageFile != null) {
-                        scaffoldMessenger.showSnackBar(const SnackBar(
-                            content: Text('Завантаження фото...')));
+                            if (newImageFile != null) {
+                              scaffoldMessenger.showSnackBar(
+                                const SnackBar(
+                                  content: Text('Завантаження фото...'),
+                                ),
+                              );
 
-                        final platformFile = PlatformFile(
-                          name: newImageFile!.path
-                              .split(Platform.pathSeparator)
-                              .last,
-                          path: newImageFile!.path,
-                          size: await newImageFile!.length(),
-                        );
+                              final platformFile = PlatformFile(
+                                name: newImageFile!.path
+                                    .split(Platform.pathSeparator)
+                                    .last,
+                                path: newImageFile!.path,
+                                size: await newImageFile!.length(),
+                              );
 
-                        finalPhotoUrl = await PCloudService()
-                            .uploadFileAndGetPublicLink(
-                          file: platformFile,
-                          authToken: widget.authToken,
-                          purpose: 'chat-photo',
-                        );
-                      }
+                              finalPhotoUrl = await PCloudService()
+                                  .uploadFileAndGetPublicLink(
+                                    file: platformFile,
+                                    authToken: widget.authToken,
+                                    purpose: 'chat-photo',
+                                  );
+                            }
 
-                      await _chatService.patchChat(
-                        widget.authToken,
-                        widget.chatId,
-                        name: newName,
-                        photoUrl: finalPhotoUrl,
-                      );
+                            await _chatService.patchChat(
+                              widget.authToken,
+                              widget.chatId,
+                              name: newName,
+                              photoUrl: finalPhotoUrl,
+                            );
 
-                      if (mounted) {
-                        setState(() {
-                          _currentChatName = newName;
-                          _currentChatPhotoUrl = finalPhotoUrl;
-                        });
-                        _resolvePhotoUrl(finalPhotoUrl);
-                        Navigator.pop(dialogContext, true);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Помилка: ${e.toString().replaceFirst("Exception: ", "")}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) setDialogState(() => isSaving = false);
-                    }
-                  },
+                            if (mounted) {
+                              setState(() {
+                                _currentChatName = newName;
+                                _currentChatPhotoUrl = finalPhotoUrl;
+                              });
+                              _resolvePhotoUrl(finalPhotoUrl);
+                              Navigator.pop(dialogContext, true);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Помилка: ${e.toString().replaceFirst("Exception: ", "")}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) setDialogState(() => isSaving = false);
+                          }
+                        },
                   child: isSaving
                       ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Зберегти'),
                 ),
               ],
@@ -577,9 +614,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
 
     if (success == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Чат оновлено!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Чат оновлено!')));
     }
   }
 
@@ -590,24 +627,26 @@ class _ChatScreenState extends State<ChatScreen> {
     final bool canManageMembers =
         (_myMembership.role == ChatRole.OWNER ||
             _myMembership.role == ChatRole.ADMIN) &&
-            (_chat?.type == ChatType.GROUP);
+        (_chat?.type == ChatType.GROUP);
 
     final bool isViewer = _myMembership.role == ChatRole.VIEWER;
 
-    final bool canEditChat = (_myMembership.role == ChatRole.OWNER ||
-        _myMembership.role == ChatRole.ADMIN) &&
+    final bool canEditChat =
+        (_myMembership.role == ChatRole.OWNER ||
+            _myMembership.role == ChatRole.ADMIN) &&
         (_chat?.type == ChatType.GROUP || _chat?.type == ChatType.COURSE_CHAT);
 
-    final bool canPin = (_myMembership.role == ChatRole.OWNER ||
-        _myMembership.role == ChatRole.ADMIN ||
-        _myMembership.role == ChatRole.MODERATOR) &&
+    final bool canPin =
+        (_myMembership.role == ChatRole.OWNER ||
+            _myMembership.role == ChatRole.ADMIN ||
+            _myMembership.role == ChatRole.MODERATOR) &&
         (_chat?.type != ChatType.PRIVATE);
 
-    final bool canLeave = _myMembership.role != ChatRole.OWNER &&
-        (_chat?.type == ChatType.GROUP);
+    final bool canLeave =
+        _myMembership.role != ChatRole.OWNER && (_chat?.type == ChatType.GROUP);
 
-    final bool canDelete = _myMembership.role == ChatRole.OWNER &&
-        (_chat?.type == ChatType.GROUP);
+    final bool canDelete =
+        _myMembership.role == ChatRole.OWNER && (_chat?.type == ChatType.GROUP);
 
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
@@ -617,20 +656,26 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundImage: (_directChatPhotoUrl != null &&
-                    _directChatPhotoUrl!.isNotEmpty)
+                backgroundImage:
+                    (_directChatPhotoUrl != null &&
+                        _directChatPhotoUrl!.isNotEmpty)
                     ? NetworkImage(_directChatPhotoUrl!)
                     : null,
-                onBackgroundImageError: (_directChatPhotoUrl != null && _directChatPhotoUrl!.isNotEmpty)
+                onBackgroundImageError:
+                    (_directChatPhotoUrl != null &&
+                        _directChatPhotoUrl!.isNotEmpty)
                     ? (_, __) {
-                  if (mounted) setState(() => _directChatPhotoUrl = null);
-                }
+                        if (mounted) setState(() => _directChatPhotoUrl = null);
+                      }
                     : null,
                 child:
-                (_directChatPhotoUrl == null || _directChatPhotoUrl!.isEmpty)
-                    ? Text(_currentChatName.isNotEmpty
-                    ? _currentChatName[0].toUpperCase()
-                    : '?')
+                    (_directChatPhotoUrl == null ||
+                        _directChatPhotoUrl!.isEmpty)
+                    ? Text(
+                        _currentChatName.isNotEmpty
+                            ? _currentChatName[0].toUpperCase()
+                            : '?',
+                      )
                     : null,
               ),
               const SizedBox(width: 12),
@@ -691,10 +736,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       const PopupMenuItem<String>(
                         value: 'delete_chat',
                         child: ListTile(
-                          leading:
-                          Icon(Icons.delete_forever, color: Colors.red),
-                          title: Text('Видалити чат',
-                              style: TextStyle(color: Colors.red)),
+                          leading: Icon(
+                            Icons.delete_forever,
+                            color: Colors.red,
+                          ),
+                          title: Text(
+                            'Видалити чат',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ),
                     );
@@ -705,8 +754,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         value: 'leave_chat',
                         child: ListTile(
                           leading: Icon(Icons.exit_to_app, color: Colors.red),
-                          title: Text('Покинути чат',
-                              style: TextStyle(color: Colors.red)),
+                          title: Text(
+                            'Покинути чат',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ),
                     );
@@ -719,110 +770,123 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         body: Column(
           children: [
-            _PinnedMessageBar(
-              isLoading: _isLoadingPinned,
-              messages: _pinnedMessages,
-              onUnpin: (messageId) {
-                if (canPin) _sendUnpin(messageId);
-              },
-            ),
+            if (_chat?.type != ChatType.COURSE_CHAT)
+              _PinnedMessageBar(
+                isLoading: _isLoadingPinned,
+                messages: _pinnedMessages,
+                onUnpin: (messageId) {
+                  if (canPin) _sendUnpin(messageId);
+                },
+              ),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xFFF6F4FA),
-                      const Color(0xFFF2EFF7),
-                    ],
+                    colors: [const Color(0xFFF6F4FA), const Color(0xFFF2EFF7)],
                   ),
                 ),
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _error.isNotEmpty && _messages.isEmpty
                     ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Text(
-                        _error,
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ))
-                    : ListView.builder(
-                  controller: _scrollController,
-                  reverse: true,
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
-                  itemCount: _messages.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == _messages.length) {
-                      return _isLoadingMore
-                          ? const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Center(
-                            child: CircularProgressIndicator()),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Text(
+                            _error,
+                            style: const TextStyle(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       )
-                          : (_hasMoreMessages
-                          ? const SizedBox.shrink()
-                          : const Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Center(
-                            child: Text(
-                                "Кінець історії чату",
-                                style: TextStyle(
-                                    color: Colors.grey))),
-                      ));
-                    }
+                    : ListView.builder(
+                        controller: _scrollController,
+                        reverse: true,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8.0,
+                          vertical: 12.0,
+                        ),
+                        itemCount: _messages.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == _messages.length) {
+                            return _isLoadingMore
+                                ? const Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
+                                : (_hasMoreMessages
+                                      ? const SizedBox.shrink()
+                                      : const Padding(
+                                          padding: EdgeInsets.all(16.0),
+                                          child: Center(
+                                            child: Text(
+                                              "Кінець історії чату",
+                                              style: TextStyle(
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        ));
+                          }
 
-                    final message =
-                    _messages[_messages.length - 1 - index];
-                    final isMe =
-                        message.username == widget.currentUsername;
+                          final message =
+                              _messages[_messages.length - 1 - index];
+                          final isMe =
+                              message.username == widget.currentUsername;
 
-                    Widget messageWidget;
-                    if (message.relatedEntities.isNotEmpty &&
-                        widget.courseId != null &&
-                        (message.type == MessageType.ASSIGNMENT_CREATED ||
-                            message.type == MessageType.MATERIAL_CREATED ||
-                            message.type == MessageType.USER_MESSAGE)) {
-                      messageWidget = _RelatedEntityCard(
-                        entity: message.relatedEntities.first,
-                        authToken: widget.authToken,
-                        courseId: widget.courseId!,
-                        message: message,
-                        currentUsername: widget.currentUsername,
-                      );
-                    } else if (message.username == null ||
-                        message.type != MessageType.USER_MESSAGE) {
-                      messageWidget = _SystemMessageTile(message: message);
-                    } else {
-                      messageWidget = _MessageBubble(
-                        message: message,
-                        isMe: isMe,
-                        primaryColor: primaryColor,
-                        myRole: _myMembership.role,
-                        onLongPress: () => _showMessageOptions(
-                            context, message,
-                            canPin: canPin),
-                      );
-                    }
+                          Widget messageWidget;
+                          if (message.relatedEntities.isNotEmpty &&
+                              widget.courseId != null &&
+                              (message.type == MessageType.ASSIGNMENT_CREATED ||
+                                  message.type ==
+                                      MessageType.MATERIAL_CREATED ||
+                                  message.type == MessageType.USER_MESSAGE)) {
+                            messageWidget = _RelatedEntityCard(
+                              entity: message.relatedEntities.first,
+                              authToken: widget.authToken,
+                              courseId: widget.courseId!,
+                              message: message,
+                              currentUsername: widget.currentUsername,
+                            );
+                          } else if (message.username == null ||
+                              message.type != MessageType.USER_MESSAGE) {
+                            messageWidget = _SystemMessageTile(
+                              message: message,
+                            );
+                          } else {
+                            messageWidget = _MessageBubble(
+                              message: message,
+                              isMe: isMe,
+                              primaryColor: primaryColor,
+                              myRole: _myMembership.role,
+                              onLongPress: () => _showMessageOptions(
+                                context,
+                                message,
+                                canPin: canPin,
+                              ),
+                            );
+                          }
 
-                    return Column(
-                      children: [
-                        if (message.replyToMessageId != null)
-                          _buildReplyPreview(message.replyToMessageId!),
-                        messageWidget,
-                      ],
-                    );
-                  },
-                ),
+                          return Column(
+                            children: [
+                              if (message.replyToMessageId != null)
+                                _buildReplyPreview(message.replyToMessageId!),
+                              messageWidget,
+                            ],
+                          );
+                        },
+                      ),
               ),
             ),
             if (_typingUsers.isNotEmpty)
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 10.0,
+                ),
                 child: Row(
                   children: [
                     SizedBox(
@@ -830,19 +894,18 @@ class _ChatScreenState extends State<ChatScreen> {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          primaryColor,
-                        ),
+                        valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Text(
                       '${_typingUsers.toSet().join(', ')} друкує...',
                       style: TextStyle(
-                          color: AppColors.onSurface.withOpacity(0.7),
-                          fontSize: 13,
-                          fontStyle: FontStyle.italic,
-                          fontWeight: FontWeight.w400),
+                        color: AppColors.onSurface.withOpacity(0.7),
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ],
                 ),
@@ -852,7 +915,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
             if (!isViewer)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12.0,
+                  vertical: 10.0,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -872,9 +938,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
-                        icon: Icon(Icons.attach_file_rounded, color: primaryColor),
+                        icon: Icon(
+                          Icons.attach_file_rounded,
+                          color: primaryColor,
+                        ),
                         tooltip: 'Прикріпити файл',
-                        onPressed: _isUploadingFile ? null : _pickAndUploadFiles,
+                        onPressed: _isUploadingFile
+                            ? null
+                            : _pickAndUploadFiles,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -908,8 +979,9 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           maxLines: null,
                           textCapitalization: TextCapitalization.sentences,
-                          onSubmitted:
-                          _isUploadingFile ? null : (_) => _sendMessage(),
+                          onSubmitted: _isUploadingFile
+                              ? null
+                              : (_) => _sendMessage(),
                         ),
                       ),
                     ),
@@ -927,7 +999,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         ],
                       ),
                       child: IconButton(
-                        icon: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+                        icon: const Icon(
+                          Icons.send_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                         onPressed: _isUploadingFile ? null : _sendMessage,
                         tooltip: 'Надіслати',
                       ),
@@ -943,7 +1019,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: Text(
                     "Ви у режимі перегляду. Надсилання повідомлень вимкнено.",
                     style: TextStyle(
-                        color: Colors.grey, fontStyle: FontStyle.italic),
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ),
               ),
@@ -969,20 +1047,24 @@ class _ChatScreenState extends State<ChatScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withOpacity(0.08),
                   border: Border(
-                    left: BorderSide(
-                      color: AppColors.primary,
-                      width: 3,
-                    ),
+                    left: BorderSide(color: AppColors.primary, width: 3),
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.reply_rounded, color: AppColors.primary, size: 20),
+                    Icon(
+                      Icons.reply_rounded,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -991,9 +1073,10 @@ class _ChatScreenState extends State<ChatScreen> {
                           Text(
                             _replyingToMessage!.username ?? 'Система',
                             style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                                fontSize: 13),
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                              fontSize: 13,
+                            ),
                           ),
                           const SizedBox(height: 3),
                           Text(
@@ -1001,16 +1084,17 @@ class _ChatScreenState extends State<ChatScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                color: AppColors.onSurface.withOpacity(0.8), 
-                                fontSize: 13),
+                              color: AppColors.onSurface.withOpacity(0.8),
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     IconButton(
                       icon: Icon(
-                        Icons.close_rounded, 
-                        size: 18, 
+                        Icons.close_rounded,
+                        size: 18,
                         color: AppColors.onSurface.withOpacity(0.6),
                       ),
                       padding: EdgeInsets.zero,
@@ -1020,7 +1104,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           _replyingToMessage = null;
                         });
                       },
-                    )
+                    ),
                   ],
                 ),
               ),
@@ -1034,7 +1118,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 itemCount: _mediaToSend.length,
                 itemBuilder: (context, index) {
                   final media = _mediaToSend[index];
-                  final isImage = media.fileName != null &&
+                  final isImage =
+                      media.fileName != null &&
                       (media.fileName!.toLowerCase().endsWith('.png') ||
                           media.fileName!.toLowerCase().endsWith('.jpg') ||
                           media.fileName!.toLowerCase().endsWith('.jpeg'));
@@ -1051,13 +1136,16 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           child: isImage
                               ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(8),
 
-                            child: _OptimizedImagePreview(
-                                publicUrl: media.fileUrl),
-                          )
-                              : Icon(Icons.insert_drive_file_outlined,
-                              color: Colors.grey.shade700),
+                                  child: _OptimizedImagePreview(
+                                    publicUrl: media.fileUrl,
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.insert_drive_file_outlined,
+                                  color: Colors.grey.shade700,
+                                ),
                         ),
                         Positioned(
                           top: -4,
@@ -1071,17 +1159,20 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: CircleAvatar(
                               radius: 10,
                               backgroundColor: Colors.black.withOpacity(0.6),
-                              child:
-                              const Icon(Icons.close, color: Colors.white, size: 14),
+                              child: const Icon(
+                                Icons.close,
+                                color: Colors.white,
+                                size: 14,
+                              ),
                             ),
                           ),
-                        )
+                        ),
                       ],
                     ),
                   );
                 },
               ),
-            )
+            ),
         ],
       ),
     );
@@ -1089,13 +1180,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildReplyPreview(int repliedMessageId) {
     final originalMessage = _messages.firstWhere(
-          (m) => m.id == repliedMessageId,
+      (m) => m.id == repliedMessageId,
       orElse: () => ChatMessage(
-          id: 0,
-          chatId: widget.chatId,
-          content: 'Повідомлення не знайдено',
-          sentAt: DateTime.now(),
-          type: MessageType.UNKNOWN
+        id: 0,
+        chatId: widget.chatId,
+        content: 'Повідомлення не знайдено',
+        sentAt: DateTime.now(),
+        type: MessageType.UNKNOWN,
       ),
     );
 
@@ -1104,12 +1195,7 @@ class _ChatScreenState extends State<ChatScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.primary.withOpacity(0.08),
-        border: Border(
-          left: BorderSide(
-            color: AppColors.primary,
-            width: 3,
-          ),
-        ),
+        border: Border(left: BorderSide(color: AppColors.primary, width: 3)),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(6),
           topRight: Radius.circular(6),
@@ -1126,9 +1212,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 Text(
                   originalMessage.username ?? 'Система',
                   style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                      fontSize: 12),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -1136,7 +1223,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.onSurface.withOpacity(0.8), 
+                    color: AppColors.onSurface.withOpacity(0.8),
                     fontSize: 12,
                   ),
                 ),
@@ -1203,7 +1290,9 @@ class _ChatScreenState extends State<ChatScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Помилка завантаження ${file.name}: ${e.toString().replaceFirst("Exception: ", "")}'),
+            content: Text(
+              'Помилка завантаження ${file.name}: ${e.toString().replaceFirst("Exception: ", "")}',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -1215,19 +1304,22 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  void _showMessageOptions(BuildContext context, ChatMessage message,
-      {required bool canPin}) {
+  void _showMessageOptions(
+    BuildContext context,
+    ChatMessage message, {
+    required bool canPin,
+  }) {
     if (message.isSending || message.isDeleted) return;
     final bool isMe = message.username == widget.currentUsername;
     final bool canEdit = isMe && message.type == MessageType.USER_MESSAGE;
 
-    final bool canDelete = isMe ||
+    final bool canDelete =
+        isMe ||
         _myMembership.role == ChatRole.MODERATOR ||
         _myMembership.role == ChatRole.ADMIN ||
         _myMembership.role == ChatRole.OWNER;
 
-    final bool isAlreadyPinned =
-    _pinnedMessages.any((m) => m.id == message.id);
+    final bool isAlreadyPinned = _pinnedMessages.any((m) => m.id == message.id);
     final bool canPinThis =
         canPin && message.type == MessageType.USER_MESSAGE && message.id > 0;
 
@@ -1250,9 +1342,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
               if (canPinThis)
                 ListTile(
-                  leading: Icon(isAlreadyPinned
-                      ? Icons.push_pin
-                      : Icons.push_pin_outlined),
+                  leading: Icon(
+                    isAlreadyPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  ),
                   title: Text(isAlreadyPinned ? 'Відкріпити' : 'Закріпити'),
                   onTap: () {
                     Navigator.pop(builderContext);
@@ -1275,8 +1367,10 @@ class _ChatScreenState extends State<ChatScreen> {
               if (canDelete)
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Видалити',
-                      style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Видалити',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     Navigator.pop(builderContext);
                     _sendDelete(message.id);
@@ -1299,7 +1393,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: emojis.map((emoji) {
           final bool isSelected =
               message.reactions[emoji]?.contains(widget.currentUsername) ??
-                  false;
+              false;
 
           return InkWell(
             onTap: () {
@@ -1316,10 +1410,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ? Theme.of(context).primaryColorLight.withOpacity(0.2)
                     : Colors.transparent,
               ),
-              child: Text(
-                emoji,
-                style: const TextStyle(fontSize: 24),
-              ),
+              child: Text(emoji, style: const TextStyle(fontSize: 24)),
             ),
           );
         }).toList(),
@@ -1467,7 +1558,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
           case 'READ_LAST_MESSAGE':
             print(
-                "User ${payload['username']} read up to ${payload['lastReadMessageId']}");
+              "User ${payload['username']} read up to ${payload['lastReadMessageId']}",
+            );
             break;
           default:
             print("Unknown broadcast type received: $type");
@@ -1480,10 +1572,12 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messages.any((m) => m.id == message.id && m.id != 0)) return;
 
     if (message.username == widget.currentUsername && !message.isSending) {
-      final index = _messages.indexWhere((m) =>
-      m.isSending &&
-          m.content == message.content &&
-          m.replyToMessageId == message.replyToMessageId);
+      final index = _messages.indexWhere(
+        (m) =>
+            m.isSending &&
+            m.content == message.content &&
+            m.replyToMessageId == message.replyToMessageId,
+      );
 
       if (index != -1) {
         _messages[index] = message;
@@ -1499,18 +1593,15 @@ class _ChatScreenState extends State<ChatScreen> {
     _messages.sort((a, b) => a.sentAt.compareTo(b.sentAt));
 
     if (message.username == widget.currentUsername) {
-      Timer(
-        const Duration(milliseconds: 50),
-            () {
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(
-              0.0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        },
-      );
+      Timer(const Duration(milliseconds: 50), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     }
     _markAsRead();
   }
@@ -1595,18 +1686,15 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add(tempMessage);
     });
 
-    Timer(
-      const Duration(milliseconds: 50),
-          () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            0.0,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      },
-    );
+    Timer(const Duration(milliseconds: 50), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
 
     widget.stompClient.send(
       destination: '/app/chat/${widget.chatId}/send',
@@ -1642,36 +1730,74 @@ class _ChatScreenState extends State<ChatScreen> {
     if (widget.stompClient.connected != true) return;
     widget.stompClient.send(
       destination: '/app/chat/${widget.chatId}/delete',
-      body: jsonEncode({
-        'messageId': messageId,
-      }),
+      body: jsonEncode({'messageId': messageId}),
     );
   }
 
   void _sendPin(int messageId) async {
     if (messageId <= 0) return;
     try {
-      await _chatService.pinMessage(
-          widget.authToken, widget.chatId, messageId);
+      await _chatService.pinMessage(widget.authToken, widget.chatId, messageId);
       _loadPinnedMessages();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Повідомлення закріплено'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Помилка закріплення: $e'),
-            backgroundColor: Colors.red));
+      if (mounted) {
+        // Extract the error message from the exception
+        String errorMessage = e.toString();
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.substring(11);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
   void _sendUnpin(int messageId) async {
     try {
       await _chatService.unpinMessage(
-          widget.authToken, widget.chatId, messageId);
+        widget.authToken,
+        widget.chatId,
+        messageId,
+      );
       _loadPinnedMessages();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Повідомлення відкріплено'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Помилка відкріплення: $e'),
-            backgroundColor: Colors.red));
+      if (mounted) {
+        // Extract the error message from the exception
+        String errorMessage = e.toString();
+        if (errorMessage.startsWith('Exception: ')) {
+          errorMessage = errorMessage.substring(11);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -1684,9 +1810,7 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_myMembership.lastReadMessageId < lastMessageId) {
       widget.stompClient.send(
         destination: '/app/chat/${widget.chatId}/read',
-        body: jsonEncode({
-          'lastReadMessageId': lastMessageId,
-        }),
+        body: jsonEncode({'lastReadMessageId': lastMessageId}),
       );
       _myMembership = ChatMember(
         username: _myMembership.username,
@@ -1717,11 +1841,13 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Media> images = message.media
-        .where((m) =>
-    m.fileName?.toLowerCase().endsWith('.png') == true ||
-        m.fileName?.toLowerCase().endsWith('.jpg') == true ||
-        m.fileName?.toLowerCase().endsWith('.jpeg') == true ||
-        m.fileName?.toLowerCase().endsWith('.gif') == true)
+        .where(
+          (m) =>
+              m.fileName?.toLowerCase().endsWith('.png') == true ||
+              m.fileName?.toLowerCase().endsWith('.jpg') == true ||
+              m.fileName?.toLowerCase().endsWith('.jpeg') == true ||
+              m.fileName?.toLowerCase().endsWith('.gif') == true,
+        )
         .toList();
 
     final List<Media> files = message.media
@@ -1763,9 +1889,7 @@ class _MessageBubble extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
               decoration: BoxDecoration(
-                color: isMe 
-                    ? primaryColor
-                    : Colors.white,
+                color: isMe ? primaryColor : Colors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
@@ -1774,18 +1898,19 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: isMe 
+                    color: isMe
                         ? primaryColor.withOpacity(0.2)
                         : Colors.black.withOpacity(0.06),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                     spreadRadius: 0,
-                  )
+                  ),
                 ],
               ),
               child: Column(
-                crossAxisAlignment:
-                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                crossAxisAlignment: isMe
+                    ? CrossAxisAlignment.end
+                    : CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isMe && message.username != null)
@@ -1795,8 +1920,8 @@ class _MessageBubble extends StatelessWidget {
                         message.username!,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: isMe 
-                              ? Colors.white.withOpacity(0.95) 
+                          color: isMe
+                              ? Colors.white.withOpacity(0.95)
                               : primaryColor,
                           fontSize: 13,
                         ),
@@ -1810,20 +1935,24 @@ class _MessageBubble extends StatelessWidget {
                         constraints: const BoxConstraints(maxHeight: 200),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: _OptimizedImagePreview(publicUrl: images.first.fileUrl),
+                          child: _OptimizedImagePreview(
+                            publicUrl: images.first.fileUrl,
+                          ),
                         ),
                       ),
                     ),
                   if (files.isNotEmpty)
-                    ...files.map((file) => _FileAttachment(file: file, isMe: isMe)),
+                    ...files.map(
+                      (file) => _FileAttachment(file: file, isMe: isMe),
+                    ),
 
                   if (message.content.isNotEmpty || message.isDeleted)
                     SelectableText(
-                      message.isDeleted ? 'Повідомлення видалено' : message.content,
+                      message.isDeleted
+                          ? 'Повідомлення видалено'
+                          : message.content,
                       style: TextStyle(
-                        color: isMe 
-                            ? Colors.white 
-                            : AppColors.onSurface,
+                        color: isMe ? Colors.white : AppColors.onSurface,
                         fontSize: 15,
                         height: 1.5,
                         fontStyle: message.isDeleted
@@ -1838,7 +1967,9 @@ class _MessageBubble extends StatelessWidget {
                       child: Wrap(
                         spacing: 4.0,
                         runSpacing: 4.0,
-                        alignment: isMe ? WrapAlignment.end : WrapAlignment.start,
+                        alignment: isMe
+                            ? WrapAlignment.end
+                            : WrapAlignment.start,
                         children: message.reactions.entries.map((entry) {
                           final String emoji = entry.key;
                           final List<String> users = entry.value;
@@ -1846,7 +1977,9 @@ class _MessageBubble extends StatelessWidget {
 
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8.0, vertical: 4.0),
+                              horizontal: 8.0,
+                              vertical: 4.0,
+                            ),
                             decoration: BoxDecoration(
                               color: isMe
                                   ? Colors.white.withOpacity(0.3)
@@ -1858,8 +1991,8 @@ class _MessageBubble extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: isMe 
-                                    ? Colors.white 
+                                color: isMe
+                                    ? Colors.white
                                     : AppColors.onSurface,
                               ),
                             ),
@@ -1877,8 +2010,8 @@ class _MessageBubble extends StatelessWidget {
                               ? "Відправка..."
                               : message.formattedTime,
                           style: TextStyle(
-                            color: isMe 
-                                ? Colors.white.withOpacity(0.85) 
+                            color: isMe
+                                ? Colors.white.withOpacity(0.85)
                                 : AppColors.onSurface.withOpacity(0.6),
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
@@ -1890,8 +2023,8 @@ class _MessageBubble extends StatelessWidget {
                             child: Text(
                               'ред.',
                               style: TextStyle(
-                                color: isMe 
-                                    ? Colors.white.withOpacity(0.85) 
+                                color: isMe
+                                    ? Colors.white.withOpacity(0.85)
                                     : AppColors.onSurface.withOpacity(0.6),
                                 fontSize: 11,
                                 fontStyle: FontStyle.italic,
@@ -1929,7 +2062,6 @@ class _OptimizedImagePreviewState extends State<_OptimizedImagePreview> {
   }
 
   Future<void> _resolveUrl() async {
-
     if (widget.publicUrl.startsWith('http')) {
       try {
         final url = await PCloudService().getDirectImageUrl(widget.publicUrl);
@@ -1947,7 +2079,13 @@ class _OptimizedImagePreviewState extends State<_OptimizedImagePreview> {
   @override
   Widget build(BuildContext context) {
     if (_directUrl == null) {
-      return const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)));
+      return const Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
     }
     return Image.network(
       _directUrl!,
@@ -1962,6 +2100,7 @@ class _OptimizedImagePreviewState extends State<_OptimizedImagePreview> {
     );
   }
 }
+
 class _FileAttachment extends StatelessWidget {
   final Media file;
   final bool isMe;
@@ -1971,7 +2110,10 @@ class _FileAttachment extends StatelessWidget {
     try {
       final directUrl = await PCloudService().getDirectImageUrl(file.fileUrl);
       if (directUrl != null) {
-        if (!await launchUrl(Uri.parse(directUrl), mode: LaunchMode.externalApplication)) {
+        if (!await launchUrl(
+          Uri.parse(directUrl),
+          mode: LaunchMode.externalApplication,
+        )) {
           throw Exception('Could not launch $directUrl');
         }
       }
@@ -1990,25 +2132,18 @@ class _FileAttachment extends StatelessWidget {
         margin: const EdgeInsets.only(top: 6, bottom: 6),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: isMe 
-              ? Colors.white.withOpacity(0.2) 
+          color: isMe
+              ? Colors.white.withOpacity(0.2)
               : AppColors.outline.withOpacity(0.3),
           borderRadius: BorderRadius.circular(12),
-          border: isMe 
-              ? null 
-              : Border.all(
-                  color: AppColors.outline.withOpacity(0.5), 
-                  width: 1,
-                ),
+          border: isMe
+              ? null
+              : Border.all(color: AppColors.outline.withOpacity(0.5), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.insert_drive_file_rounded, 
-              color: color, 
-              size: 28,
-            ),
+            Icon(Icons.insert_drive_file_rounded, color: color, size: 28),
             const SizedBox(width: 14),
             Flexible(
               child: Text(
@@ -2028,7 +2163,6 @@ class _FileAttachment extends StatelessWidget {
     );
   }
 }
-
 
 class _SystemMessageTile extends StatelessWidget {
   final ChatMessage message;
@@ -2152,10 +2286,12 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
   void _loadEntityAndRole() {
     _entityFuture = Future(() async {
       try {
-        final members = await CourseService()
-            .getCourseMembers(widget.authToken, widget.courseId);
+        final members = await CourseService().getCourseMembers(
+          widget.authToken,
+          widget.courseId,
+        );
         final myMember = members.firstWhere(
-              (m) => m.username == widget.currentUsername,
+          (m) => m.username == widget.currentUsername,
           orElse: () => CourseMember(username: '', role: CourseRole.VIEWER),
         );
         if (mounted) {
@@ -2178,7 +2314,8 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
           widget.courseId,
           widget.entity.relatedEntityId,
         );
-      } else if (widget.entity.relatedEntityType == RelatedEntityType.MATERIAL) {
+      } else if (widget.entity.relatedEntityType ==
+          RelatedEntityType.MATERIAL) {
         return CourseService().getMaterialDetails(
           widget.authToken,
           widget.courseId,
@@ -2208,9 +2345,11 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
       elevation: 1,
       child: ListTile(
         leading: const CircularProgressIndicator(strokeWidth: 2),
-        title: Text(widget.message.content.isNotEmpty
-            ? widget.message.content
-            : "Завантаження..."),
+        title: Text(
+          widget.message.content.isNotEmpty
+              ? widget.message.content
+              : "Завантаження...",
+        ),
         subtitle: const Text("Завантаження деталей..."),
       ),
     );
@@ -2242,21 +2381,27 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
                 foregroundColor: Colors.teal.shade700,
                 child: const Icon(Icons.assignment_outlined),
               ),
-              title: Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.message.type == MessageType.ASSIGNMENT_CREATED
-                      ? "Створено нове завдання"
-                      : (widget.message.type == MessageType.USER_MESSAGE
-                      ? widget.message.content
-                      : "Завдання оновлено")),
+                  Text(
+                    widget.message.type == MessageType.ASSIGNMENT_CREATED
+                        ? "Створено нове завдання"
+                        : (widget.message.type == MessageType.USER_MESSAGE
+                              ? widget.message.content
+                              : "Завдання оновлено"),
+                  ),
                   if (assignment.deadline != null)
                     Text(
                       "Дедлайн: ${DateFormat('dd.MM.yyyy, HH:mm').format(assignment.deadline!.toLocal())}",
-                      style:
-                      TextStyle(color: Colors.red.shade700, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontSize: 12,
+                      ),
                     ),
                 ],
               ),
@@ -2264,19 +2409,19 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
               onTap: _courseRole == null
                   ? null
                   : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AssignmentDetailScreen(
-                      authToken: widget.authToken,
-                      courseId: widget.courseId,
-                      assignmentId: assignment.id,
-                      currentUserRole: _courseRole!,
-                      currentUsername: widget.currentUsername,
-                    ),
-                  ),
-                );
-              },
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AssignmentDetailScreen(
+                            authToken: widget.authToken,
+                            courseId: widget.courseId,
+                            assignmentId: assignment.id,
+                            currentUserRole: _courseRole!,
+                            currentUsername: widget.currentUsername,
+                          ),
+                        ),
+                      );
+                    },
             ),
           );
         }
@@ -2295,30 +2440,35 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
                 foregroundColor: Colors.blue.shade700,
                 child: const Icon(Icons.article_outlined),
               ),
-              title:
-              Text(topic, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text(widget.message.type == MessageType.MATERIAL_CREATED
-                  ? "Створено новий матеріал"
-                  : (widget.message.type == MessageType.USER_MESSAGE
-                  ? widget.message.content
-                  : "Матеріал оновлено")),
+              title: Text(
+                topic,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                widget.message.type == MessageType.MATERIAL_CREATED
+                    ? "Створено новий матеріал"
+                    : (widget.message.type == MessageType.USER_MESSAGE
+                          ? widget.message.content
+                          : "Матеріал оновлено"),
+              ),
               trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
               onTap: _courseRole == null
                   ? null
                   : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MaterialDetailScreen(
-                      authToken: widget.authToken,
-                      courseId: widget.courseId,
-                      materialId: material.id,
-                      canManage: _courseRole == CourseRole.OWNER ||
-                          _courseRole == CourseRole.PROFESSOR,
-                    ),
-                  ),
-                );
-              },
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => MaterialDetailScreen(
+                            authToken: widget.authToken,
+                            courseId: widget.courseId,
+                            materialId: material.id,
+                            canManage:
+                                _courseRole == CourseRole.OWNER ||
+                                _courseRole == CourseRole.PROFESSOR,
+                          ),
+                        ),
+                      );
+                    },
             ),
           );
         }
@@ -2334,10 +2484,11 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
                 child: const Icon(Icons.video_call_outlined),
               ),
               title: Text(
-                  widget.message.type == MessageType.CONFERENCE_STARTED
-                      ? "Конференція розпочалась"
-                      : "Конференція завершилась",
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                widget.message.type == MessageType.CONFERENCE_STARTED
+                    ? "Конференція розпочалась"
+                    : "Конференція завершилась",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           );
         }
@@ -2402,13 +2553,13 @@ class _PinnedMessageBar extends StatelessWidget {
             fontSize: 14,
             color: AppColors.onSurface,
             fontWeight: FontWeight.w500,
-            fontStyle:
-            message.isDeleted ? FontStyle.italic : FontStyle.normal),
+            fontStyle: message.isDeleted ? FontStyle.italic : FontStyle.normal,
+          ),
         ),
         trailing: IconButton(
           icon: Icon(
-            Icons.close_rounded, 
-            size: 20, 
+            Icons.close_rounded,
+            size: 20,
             color: AppColors.onSurface.withOpacity(0.7),
           ),
           onPressed: () => onUnpin(message.id),

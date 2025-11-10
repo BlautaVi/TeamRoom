@@ -6,29 +6,125 @@ import 'chat_models.dart';
 class ChatService {
   final String _apiBaseUrl = "http://localhost:8080/api";
 
-  Exception _handleErrorResponse(http.Response response, String context) {
+  Exception _handleErrorResponse(
+    http.Response response,
+    String context, {
+    String? customContext,
+  }) {
     String errorMessage = 'Невідома помилка';
+    final statusCode = response.statusCode;
+
     try {
       final error = jsonDecode(utf8.decode(response.bodyBytes));
-      errorMessage = (error is Map && error.containsKey('message'))
-          ? error['message']
-          : 'Помилка сервера';
+      if (error is Map && error.containsKey('message')) {
+        final serverMessage = error['message'] as String?;
+
+        // Translate common English error messages to Ukrainian
+        if (serverMessage != null) {
+          errorMessage = _translateErrorMessage(
+            serverMessage,
+            statusCode,
+            customContext,
+          );
+        } else {
+          errorMessage = _getDefaultErrorMessage(statusCode, customContext);
+        }
+      } else {
+        errorMessage = _getDefaultErrorMessage(statusCode, customContext);
+      }
     } catch (_) {
-      errorMessage = 'Помилка сервера';
+      errorMessage = _getDefaultErrorMessage(statusCode, customContext);
     }
-    debugPrint(
-      "Error in $context: Status ${response.statusCode}",
-    );
-    return Exception(
-      '$context: $errorMessage (Статус: ${response.statusCode})',
-    );
+
+    debugPrint("Error in $context: Status $statusCode, Message: $errorMessage");
+
+    return Exception(errorMessage);
   }
 
-  Future<Chat> createGroupChat(String token,
-      String name,
-      List<String> memberUsernames, {
-        String? photoUrl,
-      }) async {
+  String _translateErrorMessage(
+    String serverMessage,
+    int statusCode,
+    String? customContext,
+  ) {
+    // Handle permission errors (403)
+    if (statusCode == 403) {
+      if (serverMessage.contains('Access Denied') ||
+          serverMessage.contains('required permissions') ||
+          serverMessage.contains('permission')) {
+        if (customContext == 'pin') {
+          return 'У вас немає прав для закріплення повідомлень у цьому чаті. Для закріплення повідомлень потрібна роль модератора або вище.';
+        } else if (customContext == 'unpin') {
+          return 'У вас немає прав для відкріплення повідомлень у цьому чаті. Для відкріплення повідомлень потрібна роль модератора або вище.';
+        }
+        return 'У вас немає достатніх прав для виконання цієї дії.';
+      }
+      return 'Доступ заборонено. У вас немає прав для виконання цієї дії.';
+    }
+
+    // Handle not found errors (404)
+    if (statusCode == 404) {
+      if (serverMessage.contains('Not Found') ||
+          serverMessage.contains('не знайдено')) {
+        if (customContext == 'pin') {
+          return 'Не вдалося знайти повідомлення або чат для закріплення.';
+        } else if (customContext == 'unpin') {
+          return 'Не вдалося знайти закріплене повідомлення.';
+        }
+        return 'Запитуваний ресурс не знайдено.';
+      }
+      return serverMessage;
+    }
+
+    // Handle bad request errors (400)
+    if (statusCode == 400) {
+      if (serverMessage.contains('already pinned') ||
+          serverMessage.contains('вже прикріплене')) {
+        return 'Це повідомлення вже закріплене.';
+      }
+      if (serverMessage.contains('not pinned') ||
+          serverMessage.contains('не прикріплене')) {
+        return 'Це повідомлення не закріплене.';
+      }
+      return serverMessage.isNotEmpty
+          ? serverMessage
+          : 'Невірний запит. Перевірте введені дані.';
+    }
+
+    // Return server message as is if it's already in Ukrainian or if we don't have a translation
+    return serverMessage;
+  }
+
+  String _getDefaultErrorMessage(int statusCode, String? customContext) {
+    switch (statusCode) {
+      case 403:
+        if (customContext == 'pin') {
+          return 'У вас немає прав для закріплення повідомлень у цьому чаті. Для закріплення повідомлень потрібна роль модератора або вище.';
+        } else if (customContext == 'unpin') {
+          return 'У вас немає прав для відкріплення повідомлень у цьому чаті. Для відкріплення повідомлень потрібна роль модератора або вище.';
+        }
+        return 'Доступ заборонено. У вас немає прав для виконання цієї дії.';
+      case 404:
+        if (customContext == 'pin' || customContext == 'unpin') {
+          return 'Не вдалося знайти повідомлення або чат.';
+        }
+        return 'Запитуваний ресурс не знайдено.';
+      case 400:
+        return 'Невірний запит. Перевірте введені дані.';
+      case 401:
+        return 'Необхідна авторизація. Увійдіть у систему.';
+      case 500:
+        return 'Помилка сервера. Спробуйте пізніше.';
+      default:
+        return 'Сталася помилка. Спробуйте ще раз.';
+    }
+  }
+
+  Future<Chat> createGroupChat(
+    String token,
+    String name,
+    List<String> memberUsernames, {
+    String? photoUrl,
+  }) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats'),
       headers: {
@@ -48,16 +144,20 @@ class ChatService {
       final int? newChatId = data['chatId'] ?? data['id'];
 
       if (newChatId == null) {
-        throw Exception('Сервер не повернув ID створеного групового чату у відповіді.');
+        throw Exception(
+          'Сервер не повернув ID створеного групового чату у відповіді.',
+        );
       }
 
-      print("Group chat created with temp ID $newChatId. Fetching full details...");
+      print(
+        "Group chat created with temp ID $newChatId. Fetching full details...",
+      );
       return await getChatDetails(token, newChatId);
-
     } else {
       throw _handleErrorResponse(response, 'Не вдалося створити груповий чат');
     }
   }
+
   Future<Chat> createPrivateChat(String token, String otherUsername) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/private'),
@@ -65,9 +165,7 @@ class ChatService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode({
-        'username': otherUsername,
-      }),
+      body: jsonEncode({'username': otherUsername}),
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
@@ -76,19 +174,28 @@ class ChatService {
       final int? newChatId = data['chatId'] ?? data['id'];
 
       if (newChatId == null) {
-        throw Exception('Сервер не повернув ID створеного приватного чату у відповіді.');
+        throw Exception(
+          'Сервер не повернув ID створеного приватного чату у відповіді.',
+        );
       }
-      print("Private chat created with ID $newChatId. Fetching full details...");
+      print(
+        "Private chat created with ID $newChatId. Fetching full details...",
+      );
       return await getChatDetails(token, newChatId);
-
     } else {
       throw _handleErrorResponse(response, 'Не вдалося створити приватний чат');
     }
   }
 
-  Future<void> clearPrivateChat(String token, int chatId, {bool clearForBoth = false}) async {
+  Future<void> clearPrivateChat(
+    String token,
+    int chatId, {
+    bool clearForBoth = false,
+  }) async {
     final response = await http.delete(
-      Uri.parse('$_apiBaseUrl/chats/private/$chatId/clear?clearForBoth=$clearForBoth'),
+      Uri.parse(
+        '$_apiBaseUrl/chats/private/$chatId/clear?clearForBoth=$clearForBoth',
+      ),
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode != 200 && response.statusCode != 204) {
@@ -117,27 +224,29 @@ class ChatService {
     if (response.statusCode == 200) {
       return Chat.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити деталі чату');
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити деталі чату',
+      );
     }
   }
 
   Future<List<ChatMessage>> getMessages(
-      String token,
-      int chatId,
-      int limitBefore,
-      {int? messageId,
-        int? limitAfter}
-      ) async {
-
+    String token,
+    int chatId,
+    int limitBefore, {
+    int? messageId,
+    int? limitAfter,
+  }) async {
     final queryParameters = {
       'limitBefore': limitBefore.toString(),
       if (messageId != null) 'messageId': messageId.toString(),
       if (limitAfter != null) 'limitAfter': limitAfter.toString(),
     };
 
-    final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/messages').replace(
-      queryParameters: queryParameters,
-    );
+    final uri = Uri.parse(
+      '$_apiBaseUrl/chats/$chatId/messages',
+    ).replace(queryParameters: queryParameters);
 
     print("ChatService: Fetching messages: $uri");
 
@@ -149,7 +258,10 @@ class ChatService {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => ChatMessage.fromJson(json)).toList();
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити повідомлення');
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити повідомлення',
+      );
     }
   }
 
@@ -162,19 +274,28 @@ class ChatService {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => ChatMember.fromJson(json)).toList();
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити учасників чату');
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося завантажити учасників чату',
+      );
     }
   }
 
-  Future<ChatMember> getMyChatMembership(String token, int chatId, String currentUsername) async {
+  Future<ChatMember> getMyChatMembership(
+    String token,
+    int chatId,
+    String currentUsername,
+  ) async {
     final members = await getChatMembers(token, chatId);
     try {
       final myMembership = members.firstWhere(
-            (member) => member.username == currentUsername,
+        (member) => member.username == currentUsername,
       );
       return myMembership;
     } catch (e) {
-      throw Exception('Поточного користувача не знайдено серед учасників чату.');
+      throw Exception(
+        'Поточного користувача не знайдено серед учасників чату.',
+      );
     }
   }
 
@@ -185,17 +306,18 @@ class ChatService {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=UTF-8',
       },
-      body: jsonEncode({
-        'username': username,
-        'role': 'MEMBER',
-      }),
+      body: jsonEncode({'username': username, 'role': 'MEMBER'}),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw _handleErrorResponse(response, 'Не вдалося додати учасника');
     }
   }
 
-  Future<void> removeChatMember(String token, int chatId, String username) async {
+  Future<void> removeChatMember(
+    String token,
+    int chatId,
+    String username,
+  ) async {
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/chats/$chatId/members/$username'),
       headers: {'Authorization': 'Bearer $token'},
@@ -225,7 +347,12 @@ class ChatService {
     }
   }
 
-  Future<void> patchChat(String token, int chatId, {String? name, String? photoUrl}) async {
+  Future<void> patchChat(
+    String token,
+    int chatId, {
+    String? name,
+    String? photoUrl,
+  }) async {
     if (name == null && photoUrl == null) return;
 
     final body = <String, dynamic>{};
@@ -245,7 +372,12 @@ class ChatService {
     }
   }
 
-  Future<void> updateChatMemberRole(String token, int chatId, String username, ChatRole newRole) async {
+  Future<void> updateChatMemberRole(
+    String token,
+    int chatId,
+    String username,
+    ChatRole newRole,
+  ) async {
     final response = await http.put(
       Uri.parse('$_apiBaseUrl/chats/$chatId/members/$username'),
       headers: {
@@ -259,7 +391,11 @@ class ChatService {
     }
   }
 
-  Future<void> transferOwnership(String token, int chatId, String newOwnerUsername) async {
+  Future<void> transferOwnership(
+    String token,
+    int chatId,
+    String newOwnerUsername,
+  ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/$chatId/transfer-ownership'),
       headers: {
@@ -269,7 +405,10 @@ class ChatService {
       body: jsonEncode({'newOwnerUsername': newOwnerUsername}),
     );
     if (response.statusCode != 200) {
-      throw _handleErrorResponse(response, 'Не вдалося передати права власності');
+      throw _handleErrorResponse(
+        response,
+        'Не вдалося передати права власності',
+      );
     }
   }
 
@@ -304,17 +443,25 @@ class ChatService {
             'editedAt': json['editedAt'],
             'relatedEntities': json['relatedEntities'] ?? [],
             'media': json['media'] ?? [],
-            'reactions': json['reactions'] ?? []
+            'reactions': json['reactions'] ?? [],
           };
           return ChatMessage.fromJson(normalizedJson);
         }
         return ChatMessage.fromJson({});
       }).toList();
-
+    } else if (response.statusCode == 403) {
+      // For 403 errors, return empty list instead of throwing
+      // This allows the UI to function even if user can't view pinned messages
+      debugPrint("Access denied to pinned messages, returning empty list");
+      return [];
     } else {
-      throw _handleErrorResponse(response, 'Не вдалося завантажити закріплені повідомлення');
+      throw _handleErrorResponse(
+        response,
+        'Завантаження закріплених повідомлень',
+      );
     }
   }
+
   Future<void> pinMessage(String token, int chatId, int messageId) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/chats/$chatId/pinned'),
@@ -326,7 +473,11 @@ class ChatService {
       body: jsonEncode({'messageId': messageId}),
     );
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw _handleErrorResponse(response, 'Не вдалося закріпити повідомлення');
+      throw _handleErrorResponse(
+        response,
+        'Закріплення повідомлення',
+        customContext: 'pin',
+      );
     }
   }
 
@@ -336,7 +487,11 @@ class ChatService {
       headers: {'Authorization': 'Bearer $token'},
     );
     if (response.statusCode != 200 && response.statusCode != 204) {
-      throw _handleErrorResponse(response, 'Не вдалося відкріпити повідомлення');
+      throw _handleErrorResponse(
+        response,
+        'Відкріплення повідомлення',
+        customContext: 'unpin',
+      );
     }
   }
 }

@@ -16,6 +16,7 @@ import 'dart:io' show Platform;
 import 'package:kurs/utils/animated_tap_wrapper.dart';
 import 'ChatsMain.dart';
 import 'package:stomp_dart_client/stomp.dart';
+import 'grades_tab.dart';
 
 class CourseService {
   final String _apiBaseUrl = "http://localhost:8080/api";
@@ -93,11 +94,11 @@ class CourseService {
   }
 
   Future<void> createCourse(
-      String token,
-      String name, {
-        String? photoUrl,
-        String? description,
-      }) async {
+    String token,
+    String name, {
+    String? photoUrl,
+    String? description,
+  }) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course'),
       headers: {
@@ -116,13 +117,13 @@ class CourseService {
   }
 
   Future<void> updateCourse(
-      String token,
-      int courseId,
-      String name, {
-        String? photoUrl,
-        bool? isOpen,
-        String? description,
-      }) async {
+    String token,
+    int courseId,
+    String name, {
+    String? photoUrl,
+    bool? isOpen,
+    String? description,
+  }) async {
     final body = <String, dynamic>{'name': name};
     if (photoUrl != null) body['photoUrl'] = photoUrl;
     if (isOpen != null) body['open'] = isOpen;
@@ -161,9 +162,9 @@ class CourseService {
   }
 
   Future<List<CourseMember>> getCourseMembers(
-      String token,
-      int courseId,
-      ) async {
+    String token,
+    int courseId,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse('$_apiBaseUrl/course/$courseId'),
@@ -193,11 +194,11 @@ class CourseService {
   }
 
   Future<void> addMember(
-      String token,
-      int courseId,
-      String username,
-      CourseRole role,
-      ) async {
+    String token,
+    int courseId,
+    String username,
+    CourseRole role,
+  ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {
@@ -212,11 +213,11 @@ class CourseService {
   }
 
   Future<void> updateMemberRole(
-      String token,
-      int courseId,
-      String username,
-      CourseRole newRole,
-      ) async {
+    String token,
+    int courseId,
+    String username,
+    CourseRole newRole,
+  ) async {
     final response = await http.put(
       Uri.parse('$_apiBaseUrl/course/$courseId/members'),
       headers: {
@@ -234,8 +235,9 @@ class CourseService {
   }
 
   Future<void> deleteMember(String token, int courseId, String username) async {
-    final uri = Uri.parse('$_apiBaseUrl/course/$courseId/members')
-        .replace(queryParameters: {'username': username});
+    final uri = Uri.parse(
+      '$_apiBaseUrl/course/$courseId/members',
+    ).replace(queryParameters: {'username': username});
     final response = await http.delete(
       uri,
       headers: {'Authorization': 'Bearer $token'},
@@ -247,9 +249,9 @@ class CourseService {
   }
 
   Future<List<CourseMaterial>> getCourseMaterials(
-      String token,
-      int courseId,
-      ) async {
+    String token,
+    int courseId,
+  ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials'),
       headers: {'Authorization': 'Bearer $token'},
@@ -273,10 +275,10 @@ class CourseService {
   }
 
   Future<CourseMaterial> getMaterialDetails(
-      String token,
-      int courseId,
-      int materialId,
-      ) async {
+    String token,
+    int courseId,
+    int materialId,
+  ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -298,12 +300,12 @@ class CourseService {
   }
 
   Future<int> createMaterial(
-      String token,
-      int courseId,
-      String topic,
-      String textContent,
-      List<String> tags,
-      ) async {
+    String token,
+    int courseId,
+    String topic,
+    String textContent,
+    List<String> tags,
+  ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials'),
       headers: {
@@ -329,13 +331,13 @@ class CourseService {
   }
 
   Future<void> patchMaterial(
-      String token,
-      int courseId,
-      int materialId,
-      String? topic,
-      String? textContent,
-      List<String>? tags,
-      ) async {
+    String token,
+    int courseId,
+    int materialId,
+    String? topic,
+    String? textContent,
+    List<String>? tags,
+  ) async {
     final body = <String, dynamic>{};
     if (topic != null) body['topic'] = topic;
     if (textContent != null) body['textContent'] = textContent;
@@ -360,12 +362,12 @@ class CourseService {
   }
 
   Future<void> addMediaToMaterial(
-      String token,
-      int courseId,
-      int materialId,
-      String fileUrl,
-      String fileName,
-      ) async {
+    String token,
+    int courseId,
+    int materialId,
+    String fileUrl,
+    String fileName,
+  ) async {
     final response = await http.post(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId/media'),
       headers: {
@@ -380,11 +382,11 @@ class CourseService {
   }
 
   Future<void> deleteMaterialFile(
-      String token,
-      int courseId,
-      int materialId,
-      int mediaId,
-      ) async {
+    String token,
+    int courseId,
+    int materialId,
+    int mediaId,
+  ) async {
     final response = await http.delete(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/materials/$materialId/media/$mediaId',
@@ -397,10 +399,10 @@ class CourseService {
   }
 
   Future<void> deleteMaterial(
-      String token,
-      int courseId,
-      int materialId,
-      ) async {
+    String token,
+    int courseId,
+    int materialId,
+  ) async {
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/course/$courseId/materials/$materialId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -434,10 +436,10 @@ class CourseService {
   }
 
   Future<Assignment> getAssignmentDetails(
-      String token,
-      int courseId,
-      int assignmentId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -457,14 +459,14 @@ class CourseService {
   }
 
   Future<int> createAssignment(
-      String token,
-      int courseId,
-      String title,
-      String description,
-      List<String> tags,
-      DateTime? deadline,
-      int? maxGrade,
-      ) async {
+    String token,
+    int courseId,
+    String title,
+    String description,
+    List<String> tags,
+    DateTime? deadline,
+    int? maxGrade,
+  ) async {
     final body = {
       'title': title,
       'description': description,
@@ -497,15 +499,15 @@ class CourseService {
   }
 
   Future<void> patchAssignment(
-      String token,
-      int courseId,
-      int assignmentId,
-      String? title,
-      String? description,
-      List<String>? tags,
-      DateTime? deadline,
-      int? maxGrade,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    String? title,
+    String? description,
+    List<String>? tags,
+    DateTime? deadline,
+    int? maxGrade,
+  ) async {
     final patchBody = <String, dynamic>{};
     if (title != null) patchBody['title'] = title;
     if (description != null) patchBody['description'] = description;
@@ -532,12 +534,12 @@ class CourseService {
   }
 
   Future<void> addMediaToAssignment(
-      String token,
-      int courseId,
-      int assignmentId,
-      String fileUrl,
-      String fileName,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    String fileUrl,
+    String fileName,
+  ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media',
@@ -557,11 +559,11 @@ class CourseService {
   }
 
   Future<void> deleteAssignmentFile(
-      String token,
-      int courseId,
-      int assignmentId,
-      int mediaId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int mediaId,
+  ) async {
     final response = await http.delete(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/media/$mediaId',
@@ -574,10 +576,10 @@ class CourseService {
   }
 
   Future<void> deleteAssignment(
-      String token,
-      int courseId,
-      int assignmentId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
     final response = await http.delete(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/$assignmentId'),
       headers: {'Authorization': 'Bearer $token'},
@@ -588,11 +590,11 @@ class CourseService {
   }
 
   Future<int> submitAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      List<Map<String, String>> mediaList,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    List<Map<String, String>> mediaList,
+  ) async {
     final uri = Uri.parse(
       '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses',
     );
@@ -604,7 +606,11 @@ class CourseService {
         if (attempt > 0) await Future.delayed(Duration(milliseconds: delayMs));
         delayMs = (delayMs * 2).clamp(200, 2000);
         try {
-          existing = await getMyAssignmentResponse(token, courseId, assignmentId);
+          existing = await getMyAssignmentResponse(
+            token,
+            courseId,
+            assignmentId,
+          );
         } catch (_) {
           existing = null;
         }
@@ -612,7 +618,7 @@ class CourseService {
           try {
             final myAll = await getAllMyAssignmentResponses(token, courseId);
             existing = myAll.firstWhere(
-                  (r) => r.assignmentId == assignmentId,
+              (r) => r.assignmentId == assignmentId,
               orElse: () => AssignmentResponse(
                 id: 0,
                 assignmentId: -1,
@@ -644,11 +650,14 @@ class CourseService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         try {
           final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-          if (decoded is Map && decoded.containsKey('id') && decoded['id'] is num) {
+          if (decoded is Map &&
+              decoded.containsKey('id') &&
+              decoded['id'] is num) {
             return (decoded['id'] as num).toInt();
           } else {
             print(
-                "Warning: Assignment response created (status ${response.statusCode}) but no ID found in response body: ${response.body}");
+              "Warning: Assignment response created (status ${response.statusCode}) but no ID found in response body: ${response.body}",
+            );
             return 0;
           }
         } catch (e) {
@@ -658,23 +667,30 @@ class CourseService {
         throw _handleErrorResponse(response, 'Не вдалося надіслати відповідь');
       }
     }
+
     try {
       final existingPre = await findExistingWithRetries();
       if (existingPre != null) {
         if (existingPre.isGraded == true) {
           throw Exception('Відповідь вже оцінена — перездача неможлива.');
         }
-        await deleteAssignmentResponse(token, courseId, assignmentId, existingPre.id);
+        await deleteAssignmentResponse(
+          token,
+          courseId,
+          assignmentId,
+          existingPre.id,
+        );
       }
-    } catch (_) {
-    }
+    } catch (_) {}
 
     try {
       return await create();
     } catch (e) {
       final message = e.toString();
       final looksLikeDuplicate =
-          message.contains('already exists') || message.contains('(Статус: 409)') || message.contains('(Статус: 400)');
+          message.contains('already exists') ||
+          message.contains('(Статус: 409)') ||
+          message.contains('(Статус: 400)');
 
       if (!looksLikeDuplicate) rethrow;
 
@@ -685,15 +701,20 @@ class CourseService {
       if (existing.isGraded == true) {
         throw Exception('Відповідь вже оцінена — перездача неможлива.');
       }
-      await deleteAssignmentResponse(token, courseId, assignmentId, existing.id);
+      await deleteAssignmentResponse(
+        token,
+        courseId,
+        assignmentId,
+        existing.id,
+      );
       return await create();
     }
   }
 
   Future<List<AssignmentResponse>> getAllMyAssignmentResponses(
-      String token,
-      int courseId,
-      ) async {
+    String token,
+    int courseId,
+  ) async {
     final response = await http.get(
       Uri.parse('$_apiBaseUrl/course/$courseId/assignments/my-responses'),
       headers: {'Authorization': 'Bearer $token'},
@@ -718,10 +739,10 @@ class CourseService {
   }
 
   Future<List<AssignmentResponse>> getAssignmentResponses(
-      String token,
-      int courseId,
-      int assignmentId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
     final response = await http.get(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses',
@@ -750,11 +771,11 @@ class CourseService {
   }
 
   Future<AssignmentResponse> getAssignmentResponseDetails(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+  ) async {
     final response = await http.get(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId',
@@ -778,10 +799,10 @@ class CourseService {
   }
 
   Future<AssignmentResponse?> getMyAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+  ) async {
     final response = await http.get(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/my',
@@ -809,11 +830,11 @@ class CourseService {
   }
 
   Future<void> deleteAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+  ) async {
     final response = await http.delete(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId',
@@ -826,12 +847,12 @@ class CourseService {
   }
 
   Future<void> returnAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      String? comment,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+    String? comment,
+  ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/return',
@@ -851,11 +872,11 @@ class CourseService {
   }
 
   Future<void> cancelReturnAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+  ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/return-cancel',
@@ -871,13 +892,13 @@ class CourseService {
   }
 
   Future<void> gradeAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      int grade,
-      String? comment,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+    int grade,
+    String? comment,
+  ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/grade',
@@ -894,11 +915,11 @@ class CourseService {
   }
 
   Future<void> cancelGradeAssignmentResponse(
-      String token,
-      int courseId,
-      int assignmentId,
-      int responseId,
-      ) async {
+    String token,
+    int courseId,
+    int assignmentId,
+    int responseId,
+  ) async {
     final response = await http.post(
       Uri.parse(
         '$_apiBaseUrl/course/$courseId/assignments/$assignmentId/responses/$responseId/grade-cancel',
@@ -941,7 +962,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
     if (mounted) {
       setState(() {
         _coursesFuture = _courseService.getCourses(widget.authToken).catchError(
-              (e) {
+          (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -987,63 +1008,63 @@ class _CoursesScreenState extends State<CoursesScreen> {
                   onPressed: isJoining
                       ? null
                       : () async {
-                    final idText = courseIdController.text.trim();
-                    final id = int.tryParse(idText);
-                    if (id != null) {
-                      setDialogState(() => isJoining = true);
-                      final scaffoldMessenger = ScaffoldMessenger.of(
-                        currentContext,
-                      );
-                      try {
-                        await _courseService.joinCourse(
-                          widget.authToken,
-                          id,
-                        );
-                        if (mounted) {
-                          Navigator.pop(dialogContext);
-                          _loadCourses();
-                          scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Ви успішно приєднались!'),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Помилка приєднання: ${e.toString().replaceFirst("Exception: ", "")}',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setDialogState(() => isJoining = false);
-                        }
-                      }
-                    } else {
-                      if (mounted) {
-                        ScaffoldMessenger.of(currentContext).showSnackBar(
-                          const SnackBar(
-                            content: Text('Введіть коректний ID курсу.'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                          final idText = courseIdController.text.trim();
+                          final id = int.tryParse(idText);
+                          if (id != null) {
+                            setDialogState(() => isJoining = true);
+                            final scaffoldMessenger = ScaffoldMessenger.of(
+                              currentContext,
+                            );
+                            try {
+                              await _courseService.joinCourse(
+                                widget.authToken,
+                                id,
+                              );
+                              if (mounted) {
+                                Navigator.pop(dialogContext);
+                                _loadCourses();
+                                scaffoldMessenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Ви успішно приєднались!'),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Помилка приєднання: ${e.toString().replaceFirst("Exception: ", "")}',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setDialogState(() => isJoining = false);
+                              }
+                            }
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(currentContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Введіть коректний ID курсу.'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
+                            }
+                          }
+                        },
                   child: isJoining
                       ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Приєднатись'),
                 ),
               ],
@@ -1123,12 +1144,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
                     child: GridView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
                       gridDelegate:
-                      const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 300,
-                        childAspectRatio: 3 / 2.5,
-                        crossAxisSpacing: 20,
-                        mainAxisSpacing: 20,
-                      ),
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 300,
+                            childAspectRatio: 3 / 2.5,
+                            crossAxisSpacing: 20,
+                            mainAxisSpacing: 20,
+                          ),
                       itemCount: courses.length,
                       itemBuilder: (context, index) {
                         return _CourseCard(
@@ -1292,36 +1313,36 @@ class _CourseCardState extends State<_CourseCard> {
                   radius: 25,
                   backgroundColor: Colors.white.withOpacity(0.8),
                   backgroundImage:
-                  _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
+                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
                       ? NetworkImage(_directPhotoUrl!)
                       : null,
                   onBackgroundImageError:
-                  _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
+                      _directPhotoUrl != null && _directPhotoUrl!.isNotEmpty
                       ? (_, __) {
-                    if (mounted) {
-                      setState(() {
-                        _directPhotoUrl = null;
-                        _isLoadingPhoto = false;
-                      });
-                    }
-                  }
+                          if (mounted) {
+                            setState(() {
+                              _directPhotoUrl = null;
+                              _isLoadingPhoto = false;
+                            });
+                          }
+                        }
                       : null,
                   child: _isLoadingPhoto
                       ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: cardColor,
-                    ),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cardColor,
+                          ),
+                        )
                       : (_directPhotoUrl == null || _directPhotoUrl!.isEmpty
-                      ? Icon(
-                    Icons.school_outlined,
-                    color: cardColor.withOpacity(0.9),
-                    size: 30,
-                  )
-                      : null),
+                            ? Icon(
+                                Icons.school_outlined,
+                                color: cardColor.withOpacity(0.9),
+                                size: 30,
+                              )
+                            : null),
                 ),
               ],
             ),
@@ -1336,17 +1357,17 @@ class _CourseCardState extends State<_CourseCard> {
                 const SizedBox(width: 4),
                 _isLoadingCount
                     ? const SizedBox(
-                  width: 12,
-                  height: 12,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 1.5,
-                    color: Colors.white70,
-                  ),
-                )
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: Colors.white70,
+                        ),
+                      )
                     : Text(
-                  '${_actualMemberCount ?? 0} учасників',
-                  style: const TextStyle(color: textColor, fontSize: 12),
-                ),
+                        '${_actualMemberCount ?? 0} учасників',
+                        style: const TextStyle(color: textColor, fontSize: 12),
+                      ),
               ],
             ),
             const SizedBox(height: 4),
@@ -1411,6 +1432,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   late TabController _tabController;
   CourseRole _currentUserRole = CourseRole.VIEWER;
   bool _isLoadingRole = true;
+  bool _tabControllerInitialized = false;
   late String _courseName;
   String? _coursePhotoUrl;
   String? _courseDescription;
@@ -1424,9 +1446,25 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     _coursePhotoUrl = widget.course.photoUrl;
     _courseDescription = widget.course.description;
     initializeDateFormatting('uk_UA', null);
-    _tabController = TabController(length: 6, vsync: this);
     _determineCurrentUserRole();
     _resolvePhotoUrl();
+    _initializeTabController();
+  }
+
+  void _initializeTabController() {
+    if (!_tabControllerInitialized) {
+      _tabController = TabController(length: _getTabCount(), vsync: this);
+      _tabControllerInitialized = true;
+    }
+  }
+
+  int _getTabCount() {
+    int count = 6; // Стрічка, Завдання, Матеріали, Учасники, Чати, Конференції
+    if (_currentUserRole == CourseRole.PROFESSOR ||
+        _currentUserRole == CourseRole.OWNER) {
+      count++; // Додаємо вкладку Оцінки
+    }
+    return count;
   }
 
   @override
@@ -1455,7 +1493,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         widget.course.id,
       );
       final currentUserMember = members.firstWhere(
-            (m) => m.username == widget.currentUsername,
+        (m) => m.username == widget.currentUsername,
         orElse: () => CourseMember(
           username: widget.currentUsername,
           role: CourseRole.VIEWER,
@@ -1510,23 +1548,23 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           backgroundColor: Colors.grey.shade300,
                           backgroundImage: newSelectedImageFile != null
                               ? FileImage(newSelectedImageFile!)
-                          as ImageProvider?
+                                    as ImageProvider?
                               : (currentEditPhotoUrl != null &&
-                              currentEditPhotoUrl!.isNotEmpty
-                              ? NetworkImage(currentEditPhotoUrl!)
-                              : null),
+                                        currentEditPhotoUrl!.isNotEmpty
+                                    ? NetworkImage(currentEditPhotoUrl!)
+                                    : null),
                           onBackgroundImageError: (_, __) {
                             setDialogState(() => currentEditPhotoUrl = null);
                           },
                           child:
-                          newSelectedImageFile == null &&
-                              (currentEditPhotoUrl == null ||
-                                  currentEditPhotoUrl!.isEmpty)
+                              newSelectedImageFile == null &&
+                                  (currentEditPhotoUrl == null ||
+                                      currentEditPhotoUrl!.isEmpty)
                               ? Icon(
-                            Icons.school_outlined,
-                            size: 50,
-                            color: Colors.grey.shade600,
-                          )
+                                  Icons.school_outlined,
+                                  size: 50,
+                                  color: Colors.grey.shade600,
+                                )
                               : null,
                         ),
                         IconButton(
@@ -1545,35 +1583,35 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                           onPressed: isSaving
                               ? null
                               : () async {
-                            try {
-                              final XFile? pickedFile = await _picker
-                                  .pickImage(
-                                source: ImageSource.gallery,
-                                imageQuality: 85,
-                                maxWidth: 1024,
-                                maxHeight: 1024,
-                              );
-                              if (pickedFile != null) {
-                                setDialogState(() {
-                                  newSelectedImageFile = File(
-                                    pickedFile.path,
-                                  );
-                                  currentEditPhotoUrl = null;
-                                });
-                              }
-                            } catch (e) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(
-                                  dialogContext,
-                                ).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Помилка вибору: $e'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            }
-                          },
+                                  try {
+                                    final XFile? pickedFile = await _picker
+                                        .pickImage(
+                                          source: ImageSource.gallery,
+                                          imageQuality: 85,
+                                          maxWidth: 1024,
+                                          maxHeight: 1024,
+                                        );
+                                    if (pickedFile != null) {
+                                      setDialogState(() {
+                                        newSelectedImageFile = File(
+                                          pickedFile.path,
+                                        );
+                                        currentEditPhotoUrl = null;
+                                      });
+                                    }
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(
+                                        dialogContext,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Помилка вибору: $e'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
                         ),
                         if (newSelectedImageFile != null ||
                             (currentEditPhotoUrl != null &&
@@ -1595,9 +1633,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                               onPressed: isSaving
                                   ? null
                                   : () => setDialogState(() {
-                                newSelectedImageFile = null;
-                                currentEditPhotoUrl = null;
-                              }),
+                                      newSelectedImageFile = null;
+                                      currentEditPhotoUrl = null;
+                                    }),
                             ),
                           ),
                       ],
@@ -1634,36 +1672,36 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                   onPressed: isSaving
                       ? null
                       : () {
-                    if (newNameController.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Назва курсу не може бути порожньою.',
-                          ),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.pop(dialogContext, {
-                      'name': newNameController.text.trim(),
-                      'description': newDescriptionController.text.trim(),
-                      'newImageFile': newSelectedImageFile,
-                      'removeCurrentImage':
-                      newSelectedImageFile == null &&
-                          currentEditPhotoUrl == null &&
-                          _coursePhotoUrl != null,
-                    });
-                  },
+                          if (newNameController.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Назва курсу не може бути порожньою.',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(dialogContext, {
+                            'name': newNameController.text.trim(),
+                            'description': newDescriptionController.text.trim(),
+                            'newImageFile': newSelectedImageFile,
+                            'removeCurrentImage':
+                                newSelectedImageFile == null &&
+                                currentEditPhotoUrl == null &&
+                                _coursePhotoUrl != null,
+                          });
+                        },
                   child: isSaving
                       ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Зберегти'),
                 ),
               ],
@@ -1683,9 +1721,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       if (newName != null && newName.isNotEmpty) {
         bool hasChanges =
             (newName != _courseName) ||
-                (newDescription != (_courseDescription ?? '')) ||
-                (newlyPickedImageFile != null) ||
-                removeCurrentImage;
+            (newDescription != (_courseDescription ?? '')) ||
+            (newlyPickedImageFile != null) ||
+            removeCurrentImage;
 
         if (!hasChanges) return;
 
@@ -1794,7 +1832,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             ],
           ),
         ) ??
-            false;
+        false;
 
     if (confirm && mounted) {
       final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -1810,10 +1848,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           scaffoldMessenger.showSnackBar(
             SnackBar(content: Text('Курс "$_courseName" видалено.')),
           );
-          Navigator.pop(
-            context,
-            true,
-          );
+          Navigator.pop(context, true);
         }
       } catch (e) {
         Navigator.pop(context);
@@ -1834,6 +1869,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   @override
   Widget build(BuildContext context) {
     const Color primaryColor = Color(0xFF7C6BA3);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_courseName),
@@ -1853,64 +1889,85 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               onPressed: _deleteCourse,
             ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.dynamic_feed_outlined), text: 'Стрічка'),
-            Tab(icon: Icon(Icons.assignment_outlined), text: 'Завдання'),
-            Tab(icon: Icon(Icons.folder_copy_outlined), text: 'Матеріали'),
-            Tab(icon: Icon(Icons.groups_outlined), text: 'Учасники'),
-            Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Чати'),
-            Tab(icon: Icon(Icons.video_call_outlined), text: 'Конференції'),
-          ],
-        ),
+        bottom: _tabControllerInitialized
+            ? TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: Colors.white,
+                tabs: [
+                  const Tab(icon: Icon(Icons.dynamic_feed_outlined), text: 'Стрічка'),
+                  const Tab(icon: Icon(Icons.assignment_outlined), text: 'Завдання'),
+                  const Tab(
+                    icon: Icon(Icons.folder_copy_outlined),
+                    text: 'Матеріали',
+                  ),
+                  const Tab(icon: Icon(Icons.groups_outlined), text: 'Учасники'),
+                  if (_currentUserRole == CourseRole.PROFESSOR ||
+                      _currentUserRole == CourseRole.OWNER)
+                    const Tab(icon: Icon(Icons.grade_outlined), text: 'Оцінки'),
+                  const Tab(icon: Icon(Icons.chat_bubble_outline), text: 'Чати'),
+                  const Tab(
+                    icon: Icon(Icons.video_call_outlined),
+                    text: 'Конференції',
+                  ),
+                ],
+              )
+            : null,
       ),
       body: _isLoadingRole
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-        controller: _tabController,
-        children: [
-          FeedTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            currentUserRole: _currentUserRole,
-            currentUsername: widget.currentUsername,
-          ),
-          AssignmentsTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            currentUserRole: _currentUserRole,
-            currentUsername: widget.currentUsername,
-          ),
-          MaterialsTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            currentUserRole: _currentUserRole,
-          ),
-          MembersTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            currentUserRole: _currentUserRole,
-            currentUsername: widget.currentUsername,
-          ),
-          CourseChatsTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            currentUsername: widget.currentUsername,
-            stompClient: widget.stompClient,
-          ),
-          VideoConferencingTabView(
-            authToken: widget.authToken,
-            courseId: widget.course.id,
-            courseName: _courseName,
-            currentUsername: widget.currentUsername,
-          ),
-        ],
-      ),
+          : _tabControllerInitialized
+          ? TabBarView(
+              controller: _tabController,
+              children: [
+                FeedTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUserRole: _currentUserRole,
+                  currentUsername: widget.currentUsername,
+                ),
+                AssignmentsTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUserRole: _currentUserRole,
+                  currentUsername: widget.currentUsername,
+                ),
+                MaterialsTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUserRole: _currentUserRole,
+                ),
+                MembersTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUserRole: _currentUserRole,
+                  currentUsername: widget.currentUsername,
+                ),
+                if (_currentUserRole == CourseRole.PROFESSOR ||
+                    _currentUserRole == CourseRole.OWNER)
+                  GradesTabView(
+                    authToken: widget.authToken,
+                    courseId: widget.course.id,
+                    currentUserRole: _currentUserRole,
+                    currentUsername: widget.currentUsername,
+                  ),
+                CourseChatsTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  currentUsername: widget.currentUsername,
+                  stompClient: widget.stompClient,
+                ),
+                VideoConferencingTabView(
+                  authToken: widget.authToken,
+                  courseId: widget.course.id,
+                  courseName: _courseName,
+                  currentUsername: widget.currentUsername,
+                ),
+              ],
+            )
+          : const Center(child: CircularProgressIndicator()),
     );
   }
 }
@@ -1974,16 +2031,16 @@ class _MembersTabViewState extends State<MembersTabView> {
         _membersFuture = _courseService
             .getCourseMembers(widget.authToken, widget.courseId)
             .catchError((e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Помилка завантаження учасників: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return <CourseMember>[];
-        });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Помилка завантаження учасників: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return <CourseMember>[];
+            });
       });
     }
   }
@@ -2012,7 +2069,7 @@ class _MembersTabViewState extends State<MembersTabView> {
                       decoration: const InputDecoration(labelText: 'Username'),
                       enabled: !isAdding,
                       validator: (value) =>
-                      value == null || value.trim().isEmpty
+                          value == null || value.trim().isEmpty
                           ? 'Введіть username'
                           : null,
                     ),
@@ -2020,23 +2077,21 @@ class _MembersTabViewState extends State<MembersTabView> {
                     DropdownButtonFormField<CourseRole>(
                       value: selectedRole,
                       items: CourseRole.values
-                          .where(
-                            (role) => role != CourseRole.OWNER,
-                      )
+                          .where((role) => role != CourseRole.OWNER)
                           .map(
                             (role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(role.name),
-                        ),
-                      )
+                              value: role,
+                              child: Text(role.name),
+                            ),
+                          )
                           .toList(),
                       onChanged: isAdding
                           ? null
                           : (value) {
-                        if (value != null) {
-                          selectedRole = value;
-                        }
-                      },
+                              if (value != null) {
+                                selectedRole = value;
+                              }
+                            },
                       decoration: const InputDecoration(labelText: 'Роль'),
                     ),
                   ],
@@ -2053,55 +2108,55 @@ class _MembersTabViewState extends State<MembersTabView> {
                   onPressed: isAdding
                       ? null
                       : () async {
-                    if (formKey.currentState!.validate()) {
-                      final username = usernameController.text.trim();
-                      setDialogState(() => isAdding = true);
-                      final scaffoldMessenger = ScaffoldMessenger.of(
-                        currentContext,
-                      );
-                      try {
-                        await _courseService.addMember(
-                          widget.authToken,
-                          widget.courseId,
-                          username,
-                          selectedRole,
-                        );
-                        if (mounted) {
-                          Navigator.pop(dialogContext);
-                          _loadMembers();
-                          scaffoldMessenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Учасника додано!'),
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          scaffoldMessenger.showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                'Помилка додавання: ${e.toString().replaceFirst("Exception: ", "")}',
-                              ),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      } finally {
-                        if (mounted) {
-                          setDialogState(() => isAdding = false);
-                        }
-                      }
-                    }
-                  },
+                          if (formKey.currentState!.validate()) {
+                            final username = usernameController.text.trim();
+                            setDialogState(() => isAdding = true);
+                            final scaffoldMessenger = ScaffoldMessenger.of(
+                              currentContext,
+                            );
+                            try {
+                              await _courseService.addMember(
+                                widget.authToken,
+                                widget.courseId,
+                                username,
+                                selectedRole,
+                              );
+                              if (mounted) {
+                                Navigator.pop(dialogContext);
+                                _loadMembers();
+                                scaffoldMessenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Учасника додано!'),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                scaffoldMessenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Помилка додавання: ${e.toString().replaceFirst("Exception: ", "")}',
+                                    ),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setDialogState(() => isAdding = false);
+                              }
+                            }
+                          }
+                        },
                   child: isAdding
                       ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Додати'),
                 ),
               ],
@@ -2127,21 +2182,19 @@ class _MembersTabViewState extends State<MembersTabView> {
               content: DropdownButtonFormField<CourseRole>(
                 value: selectedRole,
                 items: CourseRole.values
-                    .where(
-                      (role) => role != CourseRole.OWNER,
-                )
+                    .where((role) => role != CourseRole.OWNER)
                     .map(
                       (role) =>
-                      DropdownMenuItem(value: role, child: Text(role.name)),
-                )
+                          DropdownMenuItem(value: role, child: Text(role.name)),
+                    )
                     .toList(),
                 onChanged: isSaving
                     ? null
                     : (value) {
-                  if (value != null) {
-                    setDialogState(() => selectedRole = value);
-                  }
-                },
+                        if (value != null) {
+                          setDialogState(() => selectedRole = value);
+                        }
+                      },
                 decoration: const InputDecoration(labelText: 'Нова роль'),
               ),
               actions: [
@@ -2155,51 +2208,51 @@ class _MembersTabViewState extends State<MembersTabView> {
                   onPressed: (selectedRole == member.role || isSaving)
                       ? null
                       : () async {
-                    setDialogState(() => isSaving = true);
-                    final scaffoldMessenger = ScaffoldMessenger.of(
-                      currentContext,
-                    );
-                    try {
-                      await _courseService.updateMemberRole(
-                        widget.authToken,
-                        widget.courseId,
-                        member.username,
-                        selectedRole,
-                      );
-                      if (mounted) {
-                        Navigator.pop(dialogContext, selectedRole);
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Роль для ${member.username} оновлено!',
-                            ),
-                          ),
-                        );
-                        _loadMembers();
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        scaffoldMessenger.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Помилка зміни ролі: ${e.toString().replaceFirst("Exception: ", "")}',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                      if (mounted) setDialogState(() => isSaving = false);
-                    }
-                  },
+                          setDialogState(() => isSaving = true);
+                          final scaffoldMessenger = ScaffoldMessenger.of(
+                            currentContext,
+                          );
+                          try {
+                            await _courseService.updateMemberRole(
+                              widget.authToken,
+                              widget.courseId,
+                              member.username,
+                              selectedRole,
+                            );
+                            if (mounted) {
+                              Navigator.pop(dialogContext, selectedRole);
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Роль для ${member.username} оновлено!',
+                                  ),
+                                ),
+                              );
+                              _loadMembers();
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Помилка зміни ролі: ${e.toString().replaceFirst("Exception: ", "")}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                            if (mounted) setDialogState(() => isSaving = false);
+                          }
+                        },
                   child: isSaving
                       ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Зберегти'),
                 ),
               ],
@@ -2235,7 +2288,7 @@ class _MembersTabViewState extends State<MembersTabView> {
             ],
           ),
         ) ??
-            false;
+        false;
 
     if (confirm && mounted) {
       final scaffoldMessenger = ScaffoldMessenger.of(currentContext);
@@ -2277,8 +2330,8 @@ class _MembersTabViewState extends State<MembersTabView> {
     final bool canManageMembers = widget.currentUserRole == CourseRole.OWNER;
     final bool canAddMembers =
         widget.currentUserRole == CourseRole.OWNER ||
-            widget.currentUserRole == CourseRole.PROFESSOR ||
-            widget.currentUserRole == CourseRole.LEADER;
+        widget.currentUserRole == CourseRole.PROFESSOR ||
+        widget.currentUserRole == CourseRole.LEADER;
 
     return Scaffold(
       body: RefreshIndicator(
@@ -2322,8 +2375,8 @@ class _MembersTabViewState extends State<MembersTabView> {
               return (roleComparison != 0)
                   ? roleComparison
                   : a.username.toLowerCase().compareTo(
-                b.username.toLowerCase(),
-              );
+                      b.username.toLowerCase(),
+                    );
             });
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -2332,15 +2385,15 @@ class _MembersTabViewState extends State<MembersTabView> {
                 final member = members[index];
                 final bool canManageThisMember =
                     canManageMembers &&
-                        member.username != widget.currentUsername &&
-                        member.role != CourseRole.OWNER;
+                    member.username != widget.currentUsername &&
+                    member.role != CourseRole.OWNER;
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundColor: Colors
                         .accents[index % Colors.accents.length]
                         .withOpacity(0.2),
                     foregroundColor:
-                    Colors.accents[index % Colors.accents.length].shade700,
+                        Colors.accents[index % Colors.accents.length].shade700,
                     child: Text(
                       member.username.isNotEmpty
                           ? member.username[0].toUpperCase()
@@ -2354,44 +2407,44 @@ class _MembersTabViewState extends State<MembersTabView> {
                   ),
                   trailing: canManageThisMember
                       ? PopupMenuButton<String>(
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: Colors.grey.shade700,
-                    ),
-                    tooltip: 'Опції для ${member.username}',
-                    onSelected: (value) {
-                      if (value == 'change_role')
-                        _changeMemberRole(member);
-                      else if (value == 'delete')
-                        _deleteMember(member);
-                    },
-                    itemBuilder: (BuildContext context) =>
-                    <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'change_role',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.manage_accounts_outlined,
+                          icon: Icon(
+                            Icons.more_vert,
+                            color: Colors.grey.shade700,
                           ),
-                          title: Text('Змінити роль'),
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.person_remove_outlined,
-                            color: Colors.red,
-                          ),
-                          title: Text(
-                            'Видалити',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
+                          tooltip: 'Опції для ${member.username}',
+                          onSelected: (value) {
+                            if (value == 'change_role')
+                              _changeMemberRole(member);
+                            else if (value == 'delete')
+                              _deleteMember(member);
+                          },
+                          itemBuilder: (BuildContext context) =>
+                              <PopupMenuEntry<String>>[
+                                const PopupMenuItem<String>(
+                                  value: 'change_role',
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.manage_accounts_outlined,
+                                    ),
+                                    title: Text('Змінити роль'),
+                                  ),
+                                ),
+                                const PopupMenuDivider(),
+                                const PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: ListTile(
+                                    leading: Icon(
+                                      Icons.person_remove_outlined,
+                                      color: Colors.red,
+                                    ),
+                                    title: Text(
+                                      'Видалити',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                        )
                       : null,
                 );
               },
@@ -2401,10 +2454,10 @@ class _MembersTabViewState extends State<MembersTabView> {
       ),
       floatingActionButton: canAddMembers
           ? FloatingActionButton(
-        onPressed: _showAddMemberDialog,
-        tooltip: 'Додати учасника',
-        child: const Icon(Icons.add),
-      )
+              onPressed: _showAddMemberDialog,
+              tooltip: 'Додати учасника',
+              child: const Icon(Icons.add),
+            )
           : null,
     );
   }
@@ -2442,15 +2495,15 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
         _materialsFuture = _courseService
             .getCourseMaterials(widget.authToken, widget.courseId)
             .catchError((e) {
-          if (mounted)
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Помилка завантаження матеріалів: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          return <CourseMaterial>[];
-        });
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Помилка завантаження матеріалів: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              return <CourseMaterial>[];
+            });
       });
   }
 
@@ -2458,7 +2511,7 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
   Widget build(BuildContext context) {
     final bool canManage =
         widget.currentUserRole == CourseRole.OWNER ||
-            widget.currentUserRole == CourseRole.PROFESSOR;
+        widget.currentUserRole == CourseRole.PROFESSOR;
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async => _loadMaterials(),
@@ -2547,21 +2600,21 @@ class _MaterialsTabViewState extends State<MaterialsTabView> {
       ),
       floatingActionButton: canManage
           ? FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push<bool>(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CreateMaterialScreen(
-                authToken: widget.authToken,
-                courseId: widget.courseId,
-              ),
-            ),
-          );
-          if (result == true && mounted) _loadMaterials();
-        },
-        tooltip: 'Додати матеріал',
-        child: const Icon(Icons.add),
-      )
+              onPressed: () async {
+                final result = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => CreateMaterialScreen(
+                      authToken: widget.authToken,
+                      courseId: widget.courseId,
+                    ),
+                  ),
+                );
+                if (result == true && mounted) _loadMaterials();
+              },
+              tooltip: 'Додати матеріал',
+              child: const Icon(Icons.add),
+            )
           : null,
     );
   }
@@ -2600,20 +2653,20 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
       setState(() {
         _materialFuture = CourseService()
             .getMaterialDetails(
-          widget.authToken,
-          widget.courseId,
-          widget.materialId,
-        )
+              widget.authToken,
+              widget.courseId,
+              widget.materialId,
+            )
             .catchError((e) {
-          if (mounted)
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Помилка завантаження деталей: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          throw e;
-        });
+              if (mounted)
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Помилка завантаження деталей: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              throw e;
+            });
       });
   }
 
@@ -2770,14 +2823,14 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                         ],
                       ),
                     ) ??
-                        false;
+                    false;
                 if (confirm && mounted) {
                   final currentContext = context;
                   showDialog(
                     context: currentContext,
                     barrierDismissible: false,
                     builder: (_) =>
-                    const Center(child: CircularProgressIndicator()),
+                        const Center(child: CircularProgressIndicator()),
                   );
                   try {
                     await CourseService().deleteMaterial(
@@ -2862,13 +2915,13 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                       children: material.tags
                           .map(
                             (t) => Chip(
-                          label: Text(t.name),
-                          backgroundColor: Colors.blueGrey.shade50,
-                          labelStyle: TextStyle(
-                            color: Colors.blueGrey.shade800,
-                          ),
-                        ),
-                      )
+                              label: Text(t.name),
+                              backgroundColor: Colors.blueGrey.shade50,
+                              labelStyle: TextStyle(
+                                color: Colors.blueGrey.shade800,
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
@@ -2882,40 +2935,40 @@ class _MaterialDetailScreenState extends State<MaterialDetailScreen> {
                     children: material.media
                         .map(
                           (file) => Card(
-                        elevation: 1,
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          leading: Icon(
-                            Icons.attach_file,
-                            color: Theme.of(context).primaryColor,
-                          ),
-                          title: Text(
-                            file.displayName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: _isDownloading
-                              ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                            elevation: 1,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            child: ListTile(
+                              leading: Icon(
+                                Icons.attach_file,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                              title: Text(
+                                file.displayName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: _isDownloading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.download_for_offline_outlined,
+                                      color: Colors.grey.shade600,
+                                    ),
+                              onTap: _isDownloading
+                                  ? null
+                                  : () => _downloadAndOpenFile(
+                                      file.fileUrl,
+                                      file.displayName,
+                                    ),
+                              dense: true,
                             ),
-                          )
-                              : Icon(
-                            Icons.download_for_offline_outlined,
-                            color: Colors.grey.shade600,
                           ),
-                          onTap: _isDownloading
-                              ? null
-                              : () => _downloadAndOpenFile(
-                            file.fileUrl,
-                            file.displayName,
-                          ),
-                          dense: true,
-                        ),
-                      ),
-                    )
+                        )
                         .toList(),
                   ),
                 ] else ...[
@@ -3088,7 +3141,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                 border: OutlineInputBorder(),
               ),
               validator: (v) =>
-              v == null || v.trim().isEmpty ? 'Введіть тему' : null,
+                  v == null || v.trim().isEmpty ? 'Введіть тему' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -3139,7 +3192,7 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () =>
-                            setState(() => _pickedFiles.removeAt(index)),
+                                  setState(() => _pickedFiles.removeAt(index)),
                       ),
                     ),
                   );
@@ -3150,13 +3203,13 @@ class _CreateMaterialScreenState extends State<CreateMaterialScreen> {
               onPressed: _isLoading ? null : _submitForm,
               child: _isLoading
                   ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text('Зберегти матеріал'),
             ),
           ],
@@ -3249,11 +3302,11 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
             .toList();
         bool textOrTagsChanged =
             topic != widget.material.topic ||
-                content != widget.material.textContent ||
-                !_listEquals(
-                  tags,
-                  widget.material.tags.map((t) => t.name).toList(),
-                );
+            content != widget.material.textContent ||
+            !_listEquals(
+              tags,
+              widget.material.tags.map((t) => t.name).toList(),
+            );
 
         scaffoldMessenger.hideCurrentSnackBar();
 
@@ -3388,7 +3441,7 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                 border: OutlineInputBorder(),
               ),
               validator: (v) =>
-              v == null || v.trim().isEmpty ? 'Введіть тему' : null,
+                  v == null || v.trim().isEmpty ? 'Введіть тему' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -3445,9 +3498,9 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () => setState(() {
-                          _filesToDelete.add(file);
-                          _existingFiles.removeAt(index);
-                        }),
+                                _filesToDelete.add(file);
+                                _existingFiles.removeAt(index);
+                              }),
                       ),
                     ),
                   );
@@ -3527,9 +3580,9 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
                         onPressed: _isLoading
                             ? null
                             : () => setState(() {
-                          _existingFiles.add(file);
-                          _filesToDelete.removeAt(index);
-                        }),
+                                _existingFiles.add(file);
+                                _filesToDelete.removeAt(index);
+                              }),
                       ),
                     ),
                   );
@@ -3541,13 +3594,13 @@ class _EditMaterialScreenState extends State<EditMaterialScreen> {
               onPressed: _isLoading ? null : _submitForm,
               child: _isLoading
                   ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text('Зберегти зміни'),
             ),
           ],
@@ -3695,10 +3748,10 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
                         : null,
                     child: _courseImageFile == null
                         ? Icon(
-                      Icons.school_outlined,
-                      size: 60,
-                      color: Colors.grey.shade600,
-                    )
+                            Icons.school_outlined,
+                            size: 60,
+                            color: Colors.grey.shade600,
+                          )
                         : null,
                   ),
                   IconButton(
@@ -3744,13 +3797,13 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
               ElevatedButton.icon(
                 icon: _isCreating
                     ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
                     : const Icon(Icons.check),
                 label: Text(_isCreating ? 'Створення...' : 'Створити курс'),
                 onPressed: _isCreating ? null : _submitForm,
@@ -3769,6 +3822,7 @@ class _CreateCourseScreenState extends State<CreateCourseScreen> {
     );
   }
 }
+
 class VideoConferencingTabView extends StatefulWidget {
   final String authToken;
   final int courseId;
@@ -3868,7 +3922,8 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
     FocusScope.of(context).unfocus();
     final String roomName = _generateRoomName(_roomController.text.trim());
 
-    final String newUrl = 'https://nek1tarch.local:8443/$roomName'
+    final String newUrl =
+        'https://nek1tarch.local:8443/$roomName'
         '#config.prejoinPageEnabled=false'
         '&config.startWithAudioMuted=false'
         '&config.startWithVideoMuted=false'
@@ -3921,9 +3976,7 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
         if (_isLoading)
           Container(
             color: Colors.black12,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            child: const Center(child: CircularProgressIndicator()),
           ),
       ],
     );
@@ -3958,13 +4011,13 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
                       : null,
                   icon: _isLoading
                       ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.video_call_outlined),
                   label: Text(_isLoading ? 'Завантаження...' : 'Приєднатися'),
                 ),
@@ -4034,6 +4087,7 @@ class _FeedTabViewState extends State<FeedTabView> {
     super.initState();
     _loadFeed();
   }
+
   void _loadFeed() {
     if (mounted) {
       setState(() {
@@ -4041,6 +4095,7 @@ class _FeedTabViewState extends State<FeedTabView> {
       });
     }
   }
+
   Future<List<FeedItem>> _fetchAndCombineFeed() async {
     try {
       final results = await Future.wait([
@@ -4052,20 +4107,25 @@ class _FeedTabViewState extends State<FeedTabView> {
 
       final List<Assignment> assignments = results[0] as List<Assignment>;
       for (var a in assignments) {
-        combinedList.add(FeedItem(
-          type: FeedItemType.assignment,
-          sortDate: a.deadline ?? DateTime.fromMillisecondsSinceEpoch(a.id * 1000),
-          assignment: a,
-        ));
+        combinedList.add(
+          FeedItem(
+            type: FeedItemType.assignment,
+            sortDate:
+                a.deadline ?? DateTime.fromMillisecondsSinceEpoch(a.id * 1000),
+            assignment: a,
+          ),
+        );
       }
 
       final List<CourseMaterial> materials = results[1] as List<CourseMaterial>;
       for (var m in materials) {
-        combinedList.add(FeedItem(
-          type: FeedItemType.material,
-          sortDate: DateTime.fromMillisecondsSinceEpoch(m.id * 1000),
-          material: m,
-        ));
+        combinedList.add(
+          FeedItem(
+            type: FeedItemType.material,
+            sortDate: DateTime.fromMillisecondsSinceEpoch(m.id * 1000),
+            material: m,
+          ),
+        );
       }
 
       combinedList.sort((a, b) => b.sortDate.compareTo(a.sortDate));
@@ -4074,10 +4134,12 @@ class _FeedTabViewState extends State<FeedTabView> {
     } catch (e) {
       print("Помилка завантаження стрічки: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Не вдалося завантажити стрічку: $e'),
-          backgroundColor: Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не вдалося завантажити стрічку: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
       return [];
     }
@@ -4087,6 +4149,7 @@ class _FeedTabViewState extends State<FeedTabView> {
     _loadFeed();
     await _feedFuture;
   }
+
   void _handleAction() {
     _loadFeed();
   }
@@ -4153,7 +4216,8 @@ class _FeedTabViewState extends State<FeedTabView> {
                       material: item.material!,
                       authToken: widget.authToken,
                       courseId: widget.courseId,
-                      canManage: widget.currentUserRole == CourseRole.OWNER ||
+                      canManage:
+                          widget.currentUserRole == CourseRole.OWNER ||
                           widget.currentUserRole == CourseRole.PROFESSOR,
                       onAction: _handleAction,
                     );
@@ -4166,6 +4230,7 @@ class _FeedTabViewState extends State<FeedTabView> {
     );
   }
 }
+
 class _MaterialFeedTile extends StatelessWidget {
   final CourseMaterial material;
   final String authToken;
@@ -4192,7 +4257,10 @@ class _MaterialFeedTile extends StatelessWidget {
           foregroundColor: Theme.of(context).primaryColor,
           child: const Icon(Icons.article_outlined, size: 22),
         ),
-        title: Text(material.topic, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          material.topic,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text(
           "Новий матеріал",
           style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
@@ -4239,7 +4307,8 @@ class _AssignmentFeedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isPastDue =
-        assignment.deadline != null && assignment.deadline!.isBefore(DateTime.now());
+        assignment.deadline != null &&
+        assignment.deadline!.isBefore(DateTime.now());
 
     return Card(
       elevation: 2,
@@ -4254,14 +4323,17 @@ class _AssignmentFeedTile extends StatelessWidget {
               : Colors.teal.shade700,
           child: const Icon(Icons.assignment_outlined, size: 22),
         ),
-        title: Text(assignment.title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          assignment.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Text(
           assignment.deadline != null
               ? "Нове завдання · Дедлайн: ${DateFormat('dd.MM.yyyy \'o\' HH:mm', 'uk_UA').format(assignment.deadline!)}"
               : "Нове завдання · Без дедлайну",
           style: TextStyle(
-              fontSize: 12,
-              color: isPastDue ? Colors.red.shade700 : Colors.grey.shade600
+            fontSize: 12,
+            color: isPastDue ? Colors.red.shade700 : Colors.grey.shade600,
           ),
         ),
         trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
