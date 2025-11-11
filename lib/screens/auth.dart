@@ -36,8 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       try {
         final response = await http.post(
-          Uri.parse("http://localhost:8080/api/auth/login"),
-          //Uri.parse("https://team-room-back.onrender.com/api/auth/login"),
+          Uri.parse("https://team-room-jitsi.duckdns.org/api/auth/login"),
           headers: {"Content-Type": "application/json"},
           body: jsonEncode({
             "username": login,
@@ -54,18 +53,18 @@ class _LoginScreenState extends State<LoginScreen> {
             debugPrint("Успішна авторизація для користувача: $login");
 
             final stompConfig = StompConfig(
-              url: 'ws://localhost:8080/ws/websocket',
-              onConnect: (frame) {
-                debugPrint("STOMP client connected (from LoginScreen).");
-              },
-              onWebSocketError: (e) => debugPrint("WebSocket Error: $e"),
-              onStompError: (frame) => debugPrint("STOMP Error: ${frame.body}"),
-              stompConnectHeaders: {'Authorization': 'Bearer $authToken'},
-              webSocketConnectHeaders: {'Authorization': 'Bearer $authToken'},
-              reconnectDelay: const Duration(seconds: 5),
-              connectionTimeout: const Duration(seconds: 15),
-              heartbeatOutgoing: const Duration(seconds: 10),
-              heartbeatIncoming: const Duration(seconds: 10),
+            url: 'wss://team-room-back.onrender.com/ws/websocket',
+            onConnect: (frame) {
+            debugPrint("STOMP client connected (from LoginScreen).");
+            },
+            onWebSocketError: (e) => debugPrint("WebSocket Error: $e"),
+            onStompError: (frame) => debugPrint("STOMP Error: ${frame.body}"),
+            stompConnectHeaders: {'Authorization': 'Bearer $authToken'},
+            webSocketConnectHeaders: {'Authorization': 'Bearer $authToken'},
+            reconnectDelay: const Duration(seconds: 5),
+            connectionTimeout: const Duration(seconds: 30),
+            heartbeatOutgoing: const Duration(seconds: 20),
+            heartbeatIncoming: const Duration(seconds: 20),
             );
 
             final stompClient = StompClient(config: stompConfig);
@@ -89,10 +88,63 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
           }
-        } else {
+        } else if (response.statusCode == 401) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text("Невірний логін або пароль")),
+            );
+          }
+        } else if (response.statusCode == 400 || response.statusCode == 403 || response.statusCode == 404) {
+          String errorMessage = "Помилка запиту.";
+          
+          try {
+            final errorData = jsonDecode(response.body);
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+            } else if (errorData['details'] != null && errorData['details'] is List && errorData['details'].isNotEmpty) {
+              errorMessage = errorData['details'][0]['message'] ?? errorMessage;
+            }
+          } catch (e) {
+            debugPrint("Помилка парсингу відповіді: $e");
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
+            );
+          }
+        } else if (response.statusCode == 500) {
+          String errorMessage = "Помилка сервера. Спробуйте пізніше.";
+          
+          try {
+            final errorData = jsonDecode(response.body);
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+            }
+          } catch (e) {
+            debugPrint("Помилка парсингу відповіді: $e");
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
+            );
+          }
+        } else {
+          String errorMessage = "Помилка авторизації (статус ${response.statusCode}).";
+          
+          try {
+            final errorData = jsonDecode(response.body);
+            if (errorData['message'] != null) {
+              errorMessage = errorData['message'];
+            }
+          } catch (e) {
+            debugPrint("Помилка парсингу відповіді: $e");
+          }
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
             );
           }
         }

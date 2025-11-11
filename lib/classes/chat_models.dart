@@ -30,6 +30,147 @@ enum RelatedEntityType { ASSIGNMENT, MATERIAL, CONFERENCE, UNKNOWN }
 
 enum ChatRole { OWNER, ADMIN, MODERATOR, MEMBER, VIEWER, UNKNOWN }
 
+enum ConferenceStatus { ACTIVE, ENDED, UNKNOWN }
+
+enum ConferenceRole { MODERATOR, MEMBER, VIEWER, UNKNOWN }
+
+
+class Conference {
+  final int id;
+  final int courseId;
+  final String subject;
+  final String roomName;
+  final ConferenceStatus status;
+  final DateTime createdAt;
+  final DateTime? endedAt;
+  final List<ConferenceParticipant> participants;
+
+  Conference({
+    required this.id,
+    required this.courseId,
+    required this.subject,
+    required this.roomName,
+    required this.status,
+    required this.createdAt,
+    this.endedAt,
+    this.participants = const [],
+  });
+
+  factory Conference.fromJson(Map<String, dynamic> json) {
+    return Conference(
+      id: json['id'] ?? 0,
+      courseId: json['courseId'] ?? 0,
+      subject: json['subject'] ?? '',
+      roomName: json['roomName'] ?? '',
+      status: _parseConferenceStatus(json['status']),
+      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      endedAt: json['endedAt'] != null ? DateTime.tryParse(json['endedAt']) : null,
+      participants: (json['participants'] as List? ?? [])
+          .map((e) => ConferenceParticipant.fromJson(e))
+          .toList(),
+    );
+  }
+
+  int get participantCount => participants.length;
+
+  static ConferenceStatus _parseConferenceStatus(String? statusStr) {
+    switch (statusStr) {
+      case 'ACTIVE':
+        return ConferenceStatus.ACTIVE;
+      case 'ENDED':
+        return ConferenceStatus.ENDED;
+      default:
+        return ConferenceStatus.UNKNOWN;
+    }
+  }
+}
+
+class ConferenceParticipant {
+  final String username;
+  final ConferenceRole role;
+  final DateTime joinedAt;
+  final DateTime? leftAt;
+
+  ConferenceParticipant({
+    required this.username,
+    required this.role,
+    required this.joinedAt,
+    this.leftAt,
+  });
+
+  factory ConferenceParticipant.fromJson(Map<String, dynamic> json) {
+    return ConferenceParticipant(
+      username: json['username'] ?? 'unknown',
+      role: _parseConferenceRole(json['role']),
+      joinedAt: DateTime.tryParse(json['joinedAt'] ?? '') ?? DateTime.now(),
+      leftAt: json['leftAt'] != null ? DateTime.tryParse(json['leftAt']) : null,
+    );
+  }
+
+  static ConferenceRole _parseConferenceRole(String? roleStr) {
+    switch (roleStr) {
+      case 'MODERATOR':
+        return ConferenceRole.MODERATOR;
+      case 'MEMBER':
+        return ConferenceRole.MEMBER;
+      case 'VIEWER':
+        return ConferenceRole.VIEWER;
+      default:
+        return ConferenceRole.UNKNOWN;
+    }
+  }
+}
+
+class ConferenceJoinData {
+  final String jwt;
+  final String roomName;
+  final ConferenceRole role;
+  final String jitsiServerUrl;
+
+  ConferenceJoinData({
+    required this.jwt,
+    required this.roomName,
+    required this.role,
+    this.jitsiServerUrl = 'https://team-room-jitsi.duckdns.org',
+  });
+
+  factory ConferenceJoinData.fromJson(Map<String, dynamic> json) {
+    final jwt = json['jwt'] as String?;
+    final roomName = json['roomName'] as String?;
+    final role = json['role'] as String?;
+    
+    if (jwt == null || jwt.isEmpty) {
+      throw Exception('JWT токен не отримано від сервера');
+    }
+    if (roomName == null || roomName.isEmpty) {
+      throw Exception('Назва кімнати не отримана від сервера');
+    }
+    if (role == null || role.isEmpty) {
+      throw Exception('Роль користувача не визначена');
+    }
+    
+    return ConferenceJoinData(
+      jwt: jwt,
+      roomName: roomName,
+      role: _parseConferenceRole(role),
+      jitsiServerUrl: json['jitsiServerUrl'] ?? 'https://team-room-jitsi.duckdns.org',
+    );
+  }
+
+  static ConferenceRole _parseConferenceRole(String? roleStr) {
+    switch (roleStr) {
+      case 'MODERATOR':
+        return ConferenceRole.MODERATOR;
+      case 'MEMBER':
+        return ConferenceRole.MEMBER;
+      case 'VIEWER':
+        return ConferenceRole.VIEWER;
+      default:
+        return ConferenceRole.UNKNOWN;
+    }
+  }
+}
+
 
 class Chat {
   final int id;

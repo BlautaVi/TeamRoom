@@ -2,7 +2,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
+import '../classes/chat_service.dart';
+import '../classes/chat_models.dart' as chat_models;
 import 'pcloud_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
@@ -11,15 +14,16 @@ import 'assignment_screens.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import '../classes/course_models.dart';
-import 'package:webview_windows/webview_windows.dart';
+import 'package:jitsi_meet/jitsi_meet.dart';
 import 'dart:io' show Platform;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:kurs/utils/animated_tap_wrapper.dart';
 import 'ChatsMain.dart';
 import 'package:stomp_dart_client/stomp.dart';
 import 'grades_tab.dart';
 
 class CourseService {
-  final String _apiBaseUrl = "http://localhost:8080/api";
+  final String _apiBaseUrl = "https://team-room-jitsi.duckdns.org/api";
 
   Exception _handleErrorResponse(http.Response response, String context) {
     String errorMessage = 'Невідома помилка';
@@ -1428,11 +1432,12 @@ class CourseDetailScreen extends StatefulWidget {
 }
 
 class _CourseDetailScreenState extends State<CourseDetailScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   CourseRole _currentUserRole = CourseRole.VIEWER;
   bool _isLoadingRole = true;
   bool _tabControllerInitialized = false;
+  bool _tabControllerDisposed = false;
   late String _courseName;
   String? _coursePhotoUrl;
   String? _courseDescription;
@@ -1452,10 +1457,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   void _initializeTabController() {
-    if (!_tabControllerInitialized) {
-      _tabController = TabController(length: _getTabCount(), vsync: this);
-      _tabControllerInitialized = true;
-    }
+    // Завжди пересоздаємо контролер з актуальною кількістю табів
+    _tabController = TabController(length: _getTabCount(), vsync: this);
+    _tabControllerInitialized = true;
   }
 
   int _getTabCount() {
@@ -1467,9 +1471,20 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     return count;
   }
 
+  void _disposeTabController() {
+    if (_tabControllerInitialized && !_tabControllerDisposed) {
+      try {
+        _tabController.dispose();
+        _tabControllerDisposed = true;
+      } catch (e) {
+        debugPrint('Error disposing TabController: $e');
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _tabController.dispose();
+    _disposeTabController();
     super.dispose();
   }
 
@@ -1502,6 +1517,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       if (mounted) {
         setState(() {
           _currentUserRole = currentUserMember.role;
+          // Пересоздаємо табконтролер, якщо роль змінилась
+          _disposeTabController();
+          _tabControllerInitialized = false;
+          _tabControllerDisposed = false;
+          _initializeTabController();
           _isLoadingRole = false;
         });
       }
@@ -3843,63 +3863,80 @@ class VideoConferencingTabView extends StatefulWidget {
 }
 
 class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
-  final _controller = WebviewController();
   final TextEditingController _roomController = TextEditingController();
+  final TextEditingController _newConferenceController = TextEditingController();
+  final ChatService _chatService = ChatService();
 
   bool _isWebViewInitialized = false;
   bool _isLoading = false;
+  bool _isLoadingConferences = false;
   String? _currentRoomUrl;
+  List<chat_models.Conference> _conferences = [];
+  CourseRole? _userRole;
 
   @override
   void initState() {
     super.initState();
     _roomController.text = 'General';
-    initPlatformState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        initPlatformState();
+      }
+    });
+    _loadUserRoleAndConferences();
   }
 
   @override
   void dispose() {
-    _controller.dispose();
     _roomController.dispose();
+    _newConferenceController.dispose();
     super.dispose();
   }
 
-  String _generateRoomName(String input) {
-    String safeInput = input
-        .replaceAll(RegExp(r'\s+'), '-')
-        .replaceAll(RegExp(r'[^a-zA-Z0-9-]'), '');
-    if (safeInput.isEmpty) {
-      safeInput = 'room';
-    }
-    return 'teamroom-course-${widget.courseId}-$safeInput';
-  }
-
-  Future<void> initPlatformState() async {
-    if (!Platform.isWindows) {
-      setState(() {});
-      return;
-    }
-
+  Future<void> _loadUserRoleAndConferences() async {
+    if (!mounted) return;
     try {
-      await _controller.initialize();
-      _controller.loadingState.listen((state) {
-        if (mounted) {
-          setState(() {
-            _isLoading = (state == LoadingState.loading);
-          });
-        }
-      });
-
+      final members = await CourseService().getCourseMembers(
+        widget.authToken,
+        widget.courseId,
+      );
+      final myMember = members.firstWhere(
+        (m) => m.username == widget.currentUsername,
+        orElse: () => CourseMember(username: '', role: CourseRole.VIEWER),
+      );
+      
       if (mounted) {
         setState(() {
-          _isWebViewInitialized = true;
+          _userRole = myMember.role;
+        });
+      }
+      
+      _refreshConferences();
+    } catch (e) {
+      print("Error loading user role: $e");
+    }
+  }
+
+  Future<void> _refreshConferences() async {
+    if (!mounted) return;
+    setState(() => _isLoadingConferences = true);
+    try {
+      final conferences = await _chatService.getConferences(
+        widget.authToken,
+        widget.courseId,
+      );
+      if (mounted) {
+        setState(() {
+          _conferences = conferences;
+          _isLoadingConferences = false;
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoadingConferences = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Не вдалося ініціалізувати WebView: $e'),
+            content: Text('Помилка завантаження конференцій: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -3907,139 +3944,552 @@ class _VideoConferencingTabViewState extends State<VideoConferencingTabView> {
     }
   }
 
-  Future<void> _joinMeeting() async {
-    if (!_isWebViewInitialized) return;
-    if (_roomController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Введіть назву кімнати'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-    final String roomName = _generateRoomName(_roomController.text.trim());
-
-    final String newUrl =
-        'https://nek1tarch.local:8443/$roomName'
-        '#config.prejoinPageEnabled=false'
-        '&config.startWithAudioMuted=false'
-        '&config.startWithVideoMuted=false'
-        '&userInfo.displayName=${Uri.encodeComponent(widget.currentUsername)}'
-        '&config.toolbarButtons=["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","invite","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help","mute-everyone"]';
-
-    if (newUrl != _currentRoomUrl) {
-      await _controller.loadUrl(newUrl);
-      setState(() {
-        _currentRoomUrl = newUrl;
-      });
-    }
+  String _generateRoomName(String input) {
+  String safeInput = input
+  .replaceAll(RegExp(r'\s+'), '-')
+  .replaceAll(RegExp(r'[^a-zA-Z0-9-]'), '');
+  if (safeInput.isEmpty) {
+  safeInput = 'room';
+  }
+  return 'teamroom-course-${widget.courseId}-$safeInput';
   }
 
-  Widget buildContent() {
+   /// Decodes JWT and calculates appropriate wait time before joining
+   int _calculateJwtWaitTime(String jwt) {
+     try {
+       final parts = jwt.split('.');
+       if (parts.length != 3) {
+         return 1500; // Default wait if JWT format is invalid
+       }
+
+       // Decode the payload (middle part)
+       String payload = parts[1];
+       // Add padding if needed
+       payload = payload.padRight((payload.length + 3) ~/ 4 * 4, '=');
+       // Replace URL-safe characters with standard base64 characters
+       payload = payload.replaceAll('-', '+').replaceAll('_', '/');
+
+       final decoded = utf8.decode(base64Url.decode(payload));
+       final jsonPayload = jsonDecode(decoded) as Map<String, dynamic>;
+
+       final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+       
+       // Check for nbf (not before) or iat (issued at) claim
+       final nbfOrIat = (jsonPayload['nbf'] ?? jsonPayload['iat'] ?? now) as int;
+       
+       // Calculate wait time: difference between token time and now, plus buffer
+       final calculatedWait = ((nbfOrIat - now) * 1000 + 500).toInt();
+       
+       return (calculatedWait).clamp(1500, 30000);
+     } catch (e) {
+       print('Could not decode JWT timing, using default delay: $e');
+       return 1500;
+     }
+   }
+
+   Future<void> _launchJitsiMeet(chat_models.ConferenceJoinData response) async {
+     try {
+       var options = JitsiMeetingOptions(room: response.roomName)
+       ..serverURL = response.jitsiServerUrl
+       ..userDisplayName = widget.currentUsername
+       ..userEmail = widget.currentUsername
+       ..audioMuted = response.role == chat_models.ConferenceRole.VIEWER
+       ..videoMuted = response.role == chat_models.ConferenceRole.VIEWER
+       ..token = response.jwt;
+
+       await JitsiMeet.joinMeeting(options);
+     } catch (e) {
+       print('❌ [JITSI] Помилка запуску конференції: $e');
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(
+           SnackBar(
+             content: Text('Помилка запуску конференції: $e'),
+             backgroundColor: Colors.red,
+           ),
+         );
+       }
+     } finally {
+       if (mounted) {
+         setState(() => _isLoading = false);
+       }
+     }
+   }
+
+   Future<void> initPlatformState() async {
+    print('🚀 [INIT] Ініціалізація WebView для видеоконференцій');
+    print('   Platform: ${Platform.operatingSystem}');
+    
+    // WebView on Windows requires complex native setup, skip it
+    print('⚠️  [INIT] WebView на Windows не підтримується');
+    if (mounted) {
+      setState(() => _isWebViewInitialized = true);
+    }
+    return;
+  }
+
+
+
+  Future<void> _joinConference(int conferenceId) async {
+  print('🎥 [JOIN CONFERENCE] Приєднання до конференції ID: $conferenceId');
+
+  FocusScope.of(context).unfocus();
+  
+  try {
+    setState(() => _isLoading = true);
+      
+    print('📤 [JOIN CONFERENCE] Запит до сервера...');
+    // Приєднуємось до конференції за ID
+    final response = await _chatService.joinConference(
+    widget.authToken,
+    widget.courseId,
+    conferenceId,
+  );
+
+  if (!mounted) return;
+
+  print('✅ [JOIN CONFERENCE] Отримана відповідь від сервера');
+  print('   Role: ${response.role}');
+      print('   Room: ${response.roomName}');
+  
+      // Запускаємо Jitsi Meet
+  _launchJitsiMeet(response);
+
+  // Генеруємо URL з параметрами залежно від ролі користувача
+  final isViewer = response.role == chat_models.ConferenceRole.VIEWER;
+  final isModerator = response.role == chat_models.ConferenceRole.MODERATOR;
+  
+  // Для VIEWER приховуємо більшість інструментів
+  final toolbarButtons = isViewer
+  ? '["hangup","profile","chat"]'
+  : '["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help"${isModerator ? ',"mute-everyone"' : ''}]';
+  
+  final String baseUrl = '${response.jitsiServerUrl}/${response.roomName}';
+  
+  // Build configuration as JavaScript
+  final configJs = '''
+  var options = {
+  roomName: '${response.roomName}',
+  jwt: '${response.jwt}',
+  configOverwrite: {
+  prejoinPageEnabled: false,
+  startWithAudioMuted: ${isViewer ? 'true' : 'false'},
+  startWithVideoMuted: ${isViewer ? 'true' : 'false'},
+  disableAudioLevels: ${isViewer ? 'true' : 'false'},
+  toolbarButtons: $toolbarButtons,
+  constraints: {
+  video: {
+  height: {
+  ideal: 720,
+  max: 720,
+  min: 240
+  }
+  }
+  },
+  disableSimulcast: false,
+  enableNoAudioDetection: true,
+  enableNoisyMicDetection: true,
+  audioLevelsEnabled: true,
+  stereo: true,
+    disableInviteFunctions: true,
+         hideAllToolbars: false
+       },
+      interfaceConfigOverwrite: {
+        SHOW_JITSI_WATERMARK: false,
+        SHOW_BRAND_WATERMARK: false,
+        SHOW_POWERED_BY: false,
+        DISABLE_AUDIO_LEVELS: ${isViewer ? 'true' : 'false'},
+        DISABLE_JOIN_LEAVE_NOTIFICATIONS: false,
+        DISABLE_VIDEO_BACKGROUND: false
+      },
+      userInfo: {
+        displayName: '${widget.currentUsername}',
+        email: '${widget.currentUsername}'
+      }
+    };
+   ''';
+
+  final String htmlContent = '''
+  <!DOCTYPE html>
+  <html>
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Jitsi Meet</title>
+  <script src='https://meet.jit.si/external_api.js'></script>
+  <style>
+  html, body { height: 100%; margin: 0; padding: 0; }
+  #jitsi-container { height: 100%; }
+  </style>
+  </head>
+  <body>
+  <div id="jitsi-container"></div>
+  <script>
+  $configJs
+  var api = new JitsiMeetExternalAPI('${response.jitsiServerUrl.replaceFirst('https://', '')}', options);
+  
+  // Явно запитуємо дозволи для мікро та камери при завантаженні
+   navigator.mediaDevices.getUserMedia({ audio: true, video: true })
+     .then(function(stream) {
+       console.log('✅ Media stream obtained');
+       stream.getTracks().forEach(function(track) {
+         track.stop();
+       });
+     })
+     .catch(function(err) {
+       console.error('❌ Media access error:', err.name, err.message);
+     });
+   </script>
+          </body>
+         </html>
+        ''';
+
+       print('📋 [JITSI CONFIG] === Конфігурація конференції ===');
+       print('   Room: ${response.roomName}');
+       print('   Server: ${response.jitsiServerUrl}');
+       print('   User: ${widget.currentUsername}');
+       print('   Role: ${response.role}');
+
+       // Обчислюємо час очікування на основі JWT
+       final waitMs = _calculateJwtWaitTime(response.jwt);
+       print('⏳ [JITSI] Очікування перед завантаженням ($waitMs ms)...');
+        // Чекаємо рекомендований час перед завантаженням URL
+         await Future.delayed(Duration(milliseconds: waitMs));
+
+       if (htmlContent != _currentRoomUrl) {
+       print('🌐 [JITSI] Завантаження конференції Jitsi...');
+       // Load Jitsi URL directly with JWT
+       final jitsiUrl = '${response.jitsiServerUrl}/${response.roomName}?jwt=${response.jwt}';
+       print('   URL: $jitsiUrl');
+       print('✅ [JITSI] Конференція успішно завантажена');
+       setState(() {
+       _currentRoomUrl = htmlContent;
+       _isLoading = false;
+       });
+       } else {
+       print('⚠️  [JITSI] Конференція вже завантажена, пропускаємо повторне завантаження');
+       }
+  } catch (e) {
+   print('❌ [ERROR] Помилка приєднання до конференції:');
+   print('   $e');
+   print('   ${StackTrace.current}');
+  
+  if (mounted) {
+  setState(() => _isLoading = false);
+  ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(
+            content: Text('Помилка приєднання до конференції: ${e.toString().replaceFirst('Exception: ', '')}'),
+        backgroundColor: Colors.red,
+        ),
+          );
+         }
+        }
+    }
+
+  Future<void> _createNewConference() async {
+  if (_newConferenceController.text.trim().isEmpty) {
+  ScaffoldMessenger.of(context).showSnackBar(
+  const SnackBar(
+  content: Text('Введіть назву конференції'),
+  backgroundColor: Colors.orange,
+  ),
+  );
+  return;
+  }
+
+  FocusScope.of(context).unfocus();
+  
+  try {
+  print('=== Creating Conference ===');
+  print('User role: $_userRole');
+  print('Course ID: ${widget.courseId}');
+  print('Auth token: ${widget.authToken.substring(0, 20)}...');
+  
+  setState(() => _isLoading = true);
+  
+  // Створюємо нову конференцію
+  final response = await _chatService.createConference(
+  widget.authToken,
+  widget.courseId,
+  _newConferenceController.text.trim(),  // subject
+  );
+
+  if (!mounted) return;
+
+  if (response.jwt.isEmpty || response.roomName.isEmpty) {
+  throw Exception('Сервер повернув неповні дані для конференції');
+  }
+
+  // Обчислюємо час очікування на основі JWT
+  final waitMs = _calculateJwtWaitTime(response.jwt);
+  print('JWT wait time calculated for new conference: ${waitMs}ms');
+
+  _newConferenceController.clear();
+  _refreshConferences();
+
+  // Генеруємо конфігурацію залежно від ролі користувача
+  final isViewer = response.role == chat_models.ConferenceRole.VIEWER;
+  final isModerator = response.role == chat_models.ConferenceRole.MODERATOR;
+  
+  // Для VIEWER приховуємо більшість інструментів
+  final toolbarButtons = isViewer
+  ? '["hangup","profile","chat"]'
+  : '["microphone","camera","closedcaptions","desktop","fullscreen","fodeviceselection","hangup","profile","chat","recording","livestreaming","etherpad","sharedvideo","settings","raisehand","videoquality","filmstrip","feedback","stats","shortcuts","tileview","videobackgroundblur","download","help"${isModerator ? ',"mute-everyone"' : ''}]';
+  
+  // Build configuration as JavaScript
+  final configJs = '''
+  var options = {
+    roomName: '${response.roomName}',
+    jwt: '${response.jwt}',
+    configOverwrite: {
+      prejoinPageEnabled: true,
+      startWithAudioMuted: ${isViewer ? 'true' : 'false'},
+      startWithVideoMuted: ${isViewer ? 'true' : 'false'},
+      disableAudioLevels: ${isViewer ? 'true' : 'false'},
+             toolbarButtons: $toolbarButtons
+      },
+      interfaceConfigOverwrite: {
+        SHOW_JITSI_WATERMARK: false,
+        SHOW_BRAND_WATERMARK: false,
+        SHOW_POWERED_BY: false
+      },
+           userInfo: {
+        displayName: '${widget.currentUsername}',
+        email: '${widget.currentUsername}'
+           }
+    };
+  ''';
+
+  final String htmlContent = '''
+  <!DOCTYPE html>
+  <html>
+  <head>
+      <meta charset="utf-8">
+           <meta name="viewport" content="width=device-width, initial-scale=1">
+           <title>Jitsi Meet</title>
+           <script src='https://meet.jit.si/external_api.js'></script>
+           <style>
+             html, body { height: 100%; margin: 0; padding: 0; }
+             #jitsi-container { height: 100%; }
+           </style>
+         </head>
+         <body>
+           <div id="jitsi-container"></div>
+           <script>
+             $configJs
+             var api = new JitsiMeetExternalAPI('${response.jitsiServerUrl.replaceFirst('https://', '')}', options);
+           </script>
+         </body>
+         </html>
+       ''';
+
+       // Debug logging
+       print('=== New Jitsi Conference Loading ===');
+       print('Room: ${response.roomName}');
+       print('Server: ${response.jitsiServerUrl}');
+       print('User: ${widget.currentUsername}');
+
+       // Чекаємо рекомендований час перед завантаженням
+       await Future.delayed(Duration(milliseconds: waitMs));
+
+       if (htmlContent != _currentRoomUrl) {
+       // Load Jitsi URL directly with JWT
+       final jitsiUrl = '${response.jitsiServerUrl}/${response.roomName}?jwt=${response.jwt}';
+       print('Jitsi conference loaded successfully');
+       setState(() {
+         _currentRoomUrl = htmlContent;
+         _isLoading = false;
+       });
+       }
+  } catch (e) {
+  if (mounted) {
+    setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+             content: Text('Помилка створення конференції: ${e.toString().replaceFirst('Exception: ', '')}'),
+             backgroundColor: Colors.red,
+           ),
+         );
+       }
+     }
+   }
+
+
+
+  @override
+  Widget build(BuildContext context) {
     if (!Platform.isWindows) {
       return const Center(
         child: Text(
-          'Відеоконференції не підтримуються на цій десктопній платформі.',
+          'Відеоконференції не підтримуються на цій платформі.',
           textAlign: TextAlign.center,
         ),
       );
     }
 
-    if (!_isWebViewInitialized) {
+    if (!_isWebViewInitialized || _isLoadingConferences) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(),
             SizedBox(height: 10),
-            Text('Ініціалізація WebView...'),
+            Text('Завантаження...'),
           ],
         ),
       );
     }
 
-    if (_currentRoomUrl == null) {
+    if (_currentRoomUrl != null) {
       return const Center(
-        child: Text(
-          'Натисніть "Приєднатися", щоб розпочати відеоконференцію',
-          textAlign: TextAlign.center,
-        ),
+        child: Text('Видеоконференції на Windows не підтримуються'),
       );
     }
 
-    return Stack(
+    // Показуємо список конференцій
+    return Column(
       children: [
-        Webview(_controller),
-        if (_isLoading)
-          Container(
-            color: Colors.black12,
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _roomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Назва кімнати',
-                    hintText: 'Наприклад, "General" або "Lecture 1"',
-                    border: OutlineInputBorder(),
+        // Для професорів/власників - форма для створення нової конференції
+        if (_userRole == CourseRole.PROFESSOR || _userRole == CourseRole.OWNER) ...[
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Створити нову конференцію',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  enabled: _isWebViewInitialized && !_isLoading,
-                  onSubmitted: (_) => _joinMeeting(),
                 ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: (_isWebViewInitialized && !_isLoading)
-                      ? _joinMeeting
-                      : null,
-                  icon: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.video_call_outlined),
-                  label: Text(_isLoading ? 'Завантаження...' : 'Приєднатися'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _newConferenceController,
+                        decoration: const InputDecoration(
+                          labelText: 'Назва конференції',
+                          hintText: 'Наприклад: Лекція 1',
+                          border: OutlineInputBorder(),
+                        ),
+                        enabled: !_isLoading,
+                        onSubmitted: (_) => _createNewConference(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        onPressed: !_isLoading ? _createNewConference : null,
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.videocam_outlined),
+                        label: const Text('Створити'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.grey.shade100,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: buildContent(),
-              ),
+                const SizedBox(height: 24),
+              ],
             ),
           ),
         ],
-      ),
+
+        // Список активних конференцій
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Доступні конференції',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        if (_conferences.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Text(
+              'Активних конференцій немає',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: _conferences.length,
+              itemBuilder: (context, index) {
+                final conference = _conferences[index];
+                final isActive = conference.status == chat_models.ConferenceStatus.ACTIVE;
+                
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: isActive
+                          ? Colors.purple.withOpacity(0.1)
+                          : Colors.grey.withOpacity(0.1),
+                      foregroundColor: isActive
+                          ? Colors.purple.shade700
+                          : Colors.grey.shade700,
+                      child: const Icon(Icons.video_call_outlined),
+                    ),
+                    title: Text(
+                      conference.subject,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isActive
+                              ? 'Активна · ${conference.participantCount} учасників'
+                              : 'Завершена',
+                          style: TextStyle(
+                            color: isActive ? Colors.purple : Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    trailing: isActive
+                        ? Icon(Icons.call_made,
+                            color: Colors.purple.shade700)
+                        : Icon(Icons.check_circle,
+                            color: Colors.grey.shade400),
+                    onTap: isActive && !_isLoading
+                        ? () => _joinConference(conference.id)
+                        : null,
+                  ),
+                );
+              },
+            ),
+          ),
+        
+        // Кнопка оновлення
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: ElevatedButton.icon(
+            onPressed: _isLoading || _isLoadingConferences
+                ? null
+                : _refreshConferences,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Оновити'),
+          ),
+        ),
+      ],
     );
   }
 }

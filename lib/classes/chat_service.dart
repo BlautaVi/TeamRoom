@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'chat_models.dart';
 
 class ChatService {
-  final String _apiBaseUrl = "http://localhost:8080/api";
+  final String _apiBaseUrl = "https://team-room-jitsi.duckdns.org/api";
 
   Exception _handleErrorResponse(
     http.Response response,
@@ -450,8 +450,7 @@ class ChatService {
         return ChatMessage.fromJson({});
       }).toList();
     } else if (response.statusCode == 403) {
-      // For 403 errors, return empty list instead of throwing
-      // This allows the UI to function even if user can't view pinned messages
+
       debugPrint("Access denied to pinned messages, returning empty list");
       return [];
     } else {
@@ -482,15 +481,161 @@ class ChatService {
   }
 
   Future<void> unpinMessage(String token, int chatId, int messageId) async {
-    final response = await http.delete(
-      Uri.parse('$_apiBaseUrl/chats/$chatId/pinned/$messageId'),
+  final response = await http.delete(
+  Uri.parse('$_apiBaseUrl/chats/$chatId/pinned/$messageId'),
+  headers: {'Authorization': 'Bearer $token'},
+  );
+  if (response.statusCode != 200 && response.statusCode != 204) {
+  throw _handleErrorResponse(
+  response,
+  'Відкріплення повідомлення',
+  customContext: 'unpin',
+  );
+  }
+  }
+
+  // Conference methods
+  Future<List<Conference>> getConferences(String token, int courseId) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/course/$courseId/conferences'),
       headers: {'Authorization': 'Bearer $token'},
     );
-    if (response.statusCode != 200 && response.statusCode != 204) {
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+      return data.map((json) => Conference.fromJson(json)).toList();
+    } else {
       throw _handleErrorResponse(
         response,
-        'Відкріплення повідомлення',
-        customContext: 'unpin',
+        'Завантаження конференцій',
+      );
+    }
+  }
+
+  Future<Conference> getConferenceDetails(
+    String token,
+    int courseId,
+    int conferenceId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$_apiBaseUrl/course/$courseId/conferences/$conferenceId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      return Conference.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Завантаження деталей конференції',
+      );
+    }
+  }
+
+  Future<ConferenceJoinData> createConference(
+    String token,
+    int courseId,
+    String subject,
+  ) async {
+    try {
+      final requestBody = jsonEncode({'subject': subject});
+      final url = '$_apiBaseUrl/course/$courseId/conferences';
+      
+      debugPrint('=== Conference Creation Debug ===');
+      debugPrint('URL: $url');
+      debugPrint('CourseId: $courseId');
+      debugPrint('Subject: "$subject"');
+      debugPrint('Request body: $requestBody');
+      debugPrint('Token length: ${token.length}');
+      debugPrint('Token (first 20 chars): ${token.substring(0, (token.length > 20 ? 20 : token.length))}...');
+      debugPrint('Token is empty: ${token.isEmpty}');
+      debugPrint('Authorization header: Bearer ${token.substring(0, (token.length > 20 ? 20 : token.length))}...');
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: requestBody,
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final jsonData = jsonDecode(utf8.decode(response.bodyBytes));
+        debugPrint('Conference creation response: $jsonData');
+        return ConferenceJoinData.fromJson(jsonData);
+      } else if (response.statusCode == 401) {
+        throw Exception('Неавторизований. Будь ласка, перейдіть заново.');
+      } else if (response.statusCode == 403) {
+        String serverMessage = 'Доступ заборонено';
+        String responseBody = utf8.decode(response.bodyBytes);
+        debugPrint('403 Forbidden Response: $responseBody');
+        try {
+          final error = jsonDecode(responseBody);
+          if (error is Map && error.containsKey('message')) {
+            serverMessage = error['message'];
+          }
+        } catch (_) {}
+        throw Exception('Доступ заборонено: $serverMessage');
+      } else if (response.statusCode == 400) {
+        String serverMessage = 'Невірний запит';
+        try {
+          final error = jsonDecode(utf8.decode(response.bodyBytes));
+          if (error is Map && error.containsKey('message')) {
+            serverMessage = error['message'];
+          }
+        } catch (_) {}
+        throw Exception('Помилка: $serverMessage');
+      } else if (response.statusCode == 500) {
+        String serverMessage = 'Помилка сервера';
+        String responseBody = utf8.decode(response.bodyBytes);
+        debugPrint('500 Error Response Body: $responseBody');
+        try {
+          final error = jsonDecode(responseBody);
+          if (error is Map && error.containsKey('message')) {
+            serverMessage = error['message'];
+          } else if (error is String) {
+            serverMessage = error;
+          }
+        } catch (_) {
+          // Якщо це не JSON, використовуємо сам текст відповіді
+          if (responseBody.isNotEmpty) {
+            serverMessage = responseBody;
+          }
+        }
+        throw Exception('Помилка сервера (500): $serverMessage');
+      } else {
+        throw _handleErrorResponse(
+          response,
+          'Створення конференції',
+        );
+      }
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
+      throw Exception('Помилка підключення до сервера: $e');
+    }
+  }
+
+  Future<ConferenceJoinData> joinConference(
+    String token,
+    int courseId,
+    int conferenceId,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/course/$courseId/conferences/$conferenceId'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return ConferenceJoinData.fromJson(
+        jsonDecode(utf8.decode(response.bodyBytes)),
+      );
+    } else {
+      throw _handleErrorResponse(
+        response,
+        'Приєднання до конференції',
       );
     }
   }

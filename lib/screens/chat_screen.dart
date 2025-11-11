@@ -7,12 +7,13 @@ import 'package:stomp_dart_client/stomp.dart';
 import 'package:stomp_dart_client/stomp_frame.dart';
 import 'package:kurs/classes/chat_models.dart';
 import 'package:kurs/classes/chat_service.dart';
+
 import 'chat_members_screen.dart';
 import 'package:kurs/screens/CoursesScreen.dart';
 import 'package:kurs/classes/course_models.dart';
 import 'package:kurs/screens/assignment_screens.dart';
 import 'package:kurs/screens/CoursesScreen.dart'
-    show MaterialDetailScreen, CourseService;
+    show MaterialDetailScreen, CourseService, CourseDetailScreen;
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -850,6 +851,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               courseId: widget.courseId!,
                               message: message,
                               currentUsername: widget.currentUsername,
+                              stompClient: widget.stompClient,
                             );
                           } else if (message.username == null ||
                               message.type != MessageType.USER_MESSAGE) {
@@ -2217,9 +2219,11 @@ class _SystemMessageTile extends StatelessWidget {
         return 'Дедлайн для завдання "$assignmentTitle" закінчився.';
 
       case MessageType.CONFERENCE_STARTED:
-        return 'Конференція розпочалась.';
+        final subject = contentData['conferenceSubject'] ?? 'Конференція';
+        return 'Розпочалась конференція: "$subject"';
       case MessageType.CONFERENCE_ENDED:
-        return 'Конференція завершилась.';
+        final subject = contentData['conferenceSubject'] ?? 'Конференція';
+        return 'Завершилась конференція: "$subject"';
 
       case MessageType.USER_MESSAGE:
         return message.content;
@@ -2260,6 +2264,7 @@ class _RelatedEntityCard extends StatefulWidget {
   final int courseId;
   final ChatMessage message;
   final String currentUsername;
+  final StompClient stompClient;
 
   const _RelatedEntityCard({
     required this.entity,
@@ -2267,6 +2272,7 @@ class _RelatedEntityCard extends StatefulWidget {
     required this.courseId,
     required this.message,
     required this.currentUsername,
+    required this.stompClient,
   });
 
   @override
@@ -2323,7 +2329,17 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
         );
       } else if (widget.entity.relatedEntityType ==
           RelatedEntityType.CONFERENCE) {
-        return null;
+        // Для конференцій завантажуємо деталі через ChatService
+        try {
+          return ChatService().getConferenceDetails(
+            widget.authToken,
+            widget.courseId,
+            widget.entity.relatedEntityId,
+          );
+        } catch (e) {
+          print("Error loading conference details: $e");
+          return null;
+        }
       }
       return null;
     });
@@ -2336,6 +2352,31 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
       }
     } catch (e) {}
     return {};
+  }
+
+  void _navigateToConference(int conferenceId) {
+    // Navigate to the course detail screen
+    final tempCourse = Course(
+      id: widget.courseId,
+      name: 'Конференція',
+      isOpen: true,
+      memberCount: 0,
+      photoUrl: null,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      description: 'Конференція',
+    );
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CourseDetailScreen(
+          course: tempCourse,
+          authToken: widget.authToken,
+          currentUsername: widget.currentUsername,
+          stompClient: widget.stompClient,
+        ),
+      ),
+    );
   }
 
   @override
@@ -2474,6 +2515,53 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
         }
 
         if (widget.entity.relatedEntityType == RelatedEntityType.CONFERENCE) {
+          final contentData = _parseContentJson(widget.message.content);
+          final subject = contentData['conferenceSubject'] ?? 'Конференція';
+          
+          if (entityData is Conference) {
+            final conference = entityData;
+            final isActive = conference.status == ConferenceStatus.ACTIVE;
+            
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 32),
+              elevation: 2,
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: isActive ? Colors.purple.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                  foregroundColor: isActive ? Colors.purple.shade700 : Colors.grey.shade700,
+                  child: const Icon(Icons.video_call_outlined),
+                ),
+                title: Text(
+                  subject,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isActive ? "Конференція активна" : "Конференція завершена",
+                      style: TextStyle(
+                        color: isActive ? Colors.purple : Colors.grey,
+                      ),
+                    ),
+                    if (isActive)
+                      Text(
+                        "Учасників: ${conference.participantCount}",
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                  ],
+                ),
+                trailing: isActive 
+                    ? Icon(Icons.call_made, color: Colors.purple.shade700)
+                    : Icon(Icons.check_circle, color: Colors.grey.shade400),
+                onTap: isActive && _courseRole != null ? () {
+                  // Navigate to VideoConferencingTabView to join the conference
+                  _navigateToConference(widget.entity.relatedEntityId);
+                } : null,
+              ),
+            );
+          }
+          
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 32),
             elevation: 2,
@@ -2484,11 +2572,15 @@ class _RelatedEntityCardState extends State<_RelatedEntityCard> {
                 child: const Icon(Icons.video_call_outlined),
               ),
               title: Text(
+                subject,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
                 widget.message.type == MessageType.CONFERENCE_STARTED
                     ? "Конференція розпочалась"
                     : "Конференція завершилась",
-                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
+              trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400),
             ),
           );
         }

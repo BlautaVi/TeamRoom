@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class PCloudService {
-  final String _apiBaseUrl = "http://localhost:8080/api";
+  final String _apiBaseUrl = "https://team-room-jitsi.duckdns.org/api";
 
   Future<String?> getDirectImageUrl(String publicUrl) async {
     try {

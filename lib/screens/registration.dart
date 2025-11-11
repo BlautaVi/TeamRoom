@@ -28,7 +28,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     final String username = _usernameController.text.trim();
     final String email = _emailController.text.trim();
     final String password = _passwordController.text.trim();
-    final url = Uri.parse("http://localhost:8080/api/auth/register");
+    final url = Uri.parse("https://team-room-jitsi.duckdns.org/api/auth/register");
 
     try {
       final response = await http.post(
@@ -39,10 +39,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           "email": email,
           "password": password,
         }),
-      );
+      ).timeout(const Duration(seconds: 15), onTimeout: () {
+        throw Exception("Час очікування вичерпаний. Спробуйте ще раз.");
+      });
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        print("Успішна реєстрація: ${response.body}");
+        debugPrint("Успішна реєстрація: ${response.body}");
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -55,16 +57,79 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             FadePageRoute(child: const LoginScreen()),
           );
         }
-      } else {
-        print("Помилка реєстрації (статус ${response.statusCode}): ${response.body}");
+      } else if (response.statusCode == 400) {
+        debugPrint("Помилка валідації (статус 400): ${response.body}");
+        String errorMessage = "Помилка у вхідних даних.";
+        
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          } else if (errorData['details'] != null && errorData['details'] is List && errorData['details'].isNotEmpty) {
+            errorMessage = errorData['details'][0]['message'] ?? errorMessage;
+          }
+        } catch (e) {
+          debugPrint("Помилка парсингу відповіді: $e");
+        }
+        
         if (mounted) {
-          _showErrorSnackBar("Помилка реєстрації. Можливо, такий користувач вже існує.");
+          _showErrorSnackBar(errorMessage);
+        }
+      } else if (response.statusCode == 409) {
+        debugPrint("Конфлікт (статус 409): ${response.body}");
+        String errorMessage = "Користувач з таким логіном або email уже існує.";
+        
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          }
+        } catch (e) {
+          debugPrint("Помилка парсингу відповіді: $e");
+        }
+        
+        if (mounted) {
+          _showErrorSnackBar(errorMessage);
+        }
+      } else if (response.statusCode == 500) {
+        debugPrint("Помилка сервера (статус 500): ${response.body}");
+        String errorMessage = "Помилка сервера. Спробуйте пізніше.";
+        
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          }
+        } catch (e) {
+          debugPrint("Помилка парсингу відповіді: $e");
+        }
+        
+        if (mounted) {
+          _showErrorSnackBar(errorMessage);
+        }
+      } else {
+        debugPrint("Помилка реєстрації (статус ${response.statusCode}): ${response.body}");
+        String errorMessage = "Помилка реєстрації.";
+        
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['message'] != null) {
+            errorMessage = errorData['message'];
+          } else if (errorData['details'] != null && errorData['details'] is List && errorData['details'].isNotEmpty) {
+            errorMessage = errorData['details'][0]['message'] ?? errorMessage;
+          }
+        } catch (e) {
+          debugPrint("Помилка парсингу відповіді: $e");
+        }
+        
+        if (mounted) {
+          _showErrorSnackBar(errorMessage);
         }
       }
     } catch (e) {
-      print("Помилка підключення: $e");
+      debugPrint("Помилка підключення: $e");
       if (mounted) {
-        _showErrorSnackBar("Помилка з'єднання з сервером. Перевірте інтернет.");
+        _showErrorSnackBar("Помилка з'єднання: ${e.toString().replaceFirst('Exception: ', '')}");
       }
     }
   }
