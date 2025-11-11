@@ -40,7 +40,8 @@
 | **API** | `http` package (RESTful API) |
 | **Real-time** | `stomp_dart_client` (WebSocket) |
 | **File Handling** | `file_picker`, custom `PCloudService` |
-| **Video** | `webview_windows` (вбудований Jitsi) |
+| **Video** | `flutter_inappwebview` (Jitsi з підтримкою дозволів камери/мікрофону) |
+| **Permissions** | `permission_handler` (запит дозволів) |
 
 ---
 
@@ -50,7 +51,24 @@
 ```bash
 git clone https://github.com/BlautaVi/TeamRoom.git
 cd TeamRoom
-🔹Встановіть залежності
+```
+
+### 🔹 Встановіть залежності
+```bash
 flutter pub get
-🔹 Запустіть додаток
+```
+
+### 🔹 Конфігурація для Windows (камера та мікрофон)
+
+Перед запуском переконайтесь, що:
+1. **WebView2 Runtime** встановлено: [Завантажити](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+2. **Windows дозволи** увімкнені:
+   - Settings → Privacy & Security → Camera ✅
+   - Settings → Privacy & Security → Microphone ✅
+   - Переконайтесь що ваш додаток розташований у дозволених програмах
+
+Детальне керівництво див. в файлі **WEBVIEW2_PERMISSIONS_SETUP.md**
+
+### 🔹 Запустіть додаток
+```bash
 flutter run -d windows

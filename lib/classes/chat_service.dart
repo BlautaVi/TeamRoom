@@ -187,6 +187,44 @@ class ChatService {
     }
   }
 
+  Future<Chat> createCourseChat(
+    String token,
+    int courseId,
+    String name, {
+    String? photoUrl,
+    List<String>? memberUsernames,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+    };
+    if (photoUrl != null) body['photoUrl'] = photoUrl;
+
+    final response = await http.post(
+      Uri.parse('$_apiBaseUrl/course/$courseId/chats'),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+
+      final int? newChatId = data['chatId'] ?? data['id'];
+
+      if (newChatId == null) {
+        throw Exception(
+          'Сервер не повернув ID створеного курсового чату у відповіді.',
+        );
+      }
+      print("Course chat created with ID $newChatId. Fetching full details...");
+      return await getChatDetails(token, newChatId);
+    } else {
+      throw _handleErrorResponse(response, 'Не вдалося створити курсовий чат');
+    }
+  }
+
   Future<void> clearPrivateChat(
     String token,
     int chatId, {
@@ -450,7 +488,6 @@ class ChatService {
         return ChatMessage.fromJson({});
       }).toList();
     } else if (response.statusCode == 403) {
-
       debugPrint("Access denied to pinned messages, returning empty list");
       return [];
     } else {
@@ -481,17 +518,17 @@ class ChatService {
   }
 
   Future<void> unpinMessage(String token, int chatId, int messageId) async {
-  final response = await http.delete(
-  Uri.parse('$_apiBaseUrl/chats/$chatId/pinned/$messageId'),
-  headers: {'Authorization': 'Bearer $token'},
-  );
-  if (response.statusCode != 200 && response.statusCode != 204) {
-  throw _handleErrorResponse(
-  response,
-  'Відкріплення повідомлення',
-  customContext: 'unpin',
-  );
-  }
+    final response = await http.delete(
+      Uri.parse('$_apiBaseUrl/chats/$chatId/pinned/$messageId'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw _handleErrorResponse(
+        response,
+        'Відкріплення повідомлення',
+        customContext: 'unpin',
+      );
+    }
   }
 
   // Conference methods
@@ -504,10 +541,7 @@ class ChatService {
       final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
       return data.map((json) => Conference.fromJson(json)).toList();
     } else {
-      throw _handleErrorResponse(
-        response,
-        'Завантаження конференцій',
-      );
+      throw _handleErrorResponse(response, 'Завантаження конференцій');
     }
   }
 
@@ -523,10 +557,7 @@ class ChatService {
     if (response.statusCode == 200) {
       return Conference.fromJson(jsonDecode(utf8.decode(response.bodyBytes)));
     } else {
-      throw _handleErrorResponse(
-        response,
-        'Завантаження деталей конференції',
-      );
+      throw _handleErrorResponse(response, 'Завантаження деталей конференції');
     }
   }
 
@@ -538,25 +569,31 @@ class ChatService {
     try {
       final requestBody = jsonEncode({'subject': subject});
       final url = '$_apiBaseUrl/course/$courseId/conferences';
-      
+
       debugPrint('=== Conference Creation Debug ===');
       debugPrint('URL: $url');
       debugPrint('CourseId: $courseId');
       debugPrint('Subject: "$subject"');
       debugPrint('Request body: $requestBody');
       debugPrint('Token length: ${token.length}');
-      debugPrint('Token (first 20 chars): ${token.substring(0, (token.length > 20 ? 20 : token.length))}...');
+      debugPrint(
+        'Token (first 20 chars): ${token.substring(0, (token.length > 20 ? 20 : token.length))}...',
+      );
       debugPrint('Token is empty: ${token.isEmpty}');
-      debugPrint('Authorization header: Bearer ${token.substring(0, (token.length > 20 ? 20 : token.length))}...');
-      
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json; charset=UTF-8',
-        },
-        body: requestBody,
-      ).timeout(const Duration(seconds: 10));
+      debugPrint(
+        'Authorization header: Bearer ${token.substring(0, (token.length > 20 ? 20 : token.length))}...',
+      );
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: requestBody,
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = jsonDecode(utf8.decode(response.bodyBytes));
@@ -603,10 +640,7 @@ class ChatService {
         }
         throw Exception('Помилка сервера (500): $serverMessage');
       } else {
-        throw _handleErrorResponse(
-          response,
-          'Створення конференції',
-        );
+        throw _handleErrorResponse(response, 'Створення конференції');
       }
     } catch (e) {
       if (e is Exception) {
@@ -633,10 +667,7 @@ class ChatService {
         jsonDecode(utf8.decode(response.bodyBytes)),
       );
     } else {
-      throw _handleErrorResponse(
-        response,
-        'Приєднання до конференції',
-      );
+      throw _handleErrorResponse(response, 'Приєднання до конференції');
     }
   }
 }

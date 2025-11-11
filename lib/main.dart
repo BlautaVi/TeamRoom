@@ -4,10 +4,10 @@ import 'package:kurs/screens/auth.dart';
 import 'package:kurs/theme/app_theme.dart';
 import 'package:kurs/utils/fade_page_route.dart';
 import 'http_overrides.dart';
-import 'dart:io';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
   HttpOverrides.global = MyHttpOverrides();
 
   runApp(const MyApp());

@@ -9,7 +9,6 @@ import 'package:kurs/classes/chat_service.dart';
 import 'chat_screen.dart';
 import 'package:kurs/screens/pcloud_service.dart';
 
-
 class ChatsMain extends StatefulWidget {
   final String authToken;
   final String currentUsername;
@@ -85,7 +84,6 @@ class _ChatsMainState extends State<ChatsMain> {
         switch (type) {
           case 'JOINED_TO_CHAT':
             if (!_chats.any((c) => c.id == chatId)) {
-
               final chatJson = {
                 'id': chatId,
                 'name': payload['chat_name'],
@@ -93,7 +91,7 @@ class _ChatsMainState extends State<ChatsMain> {
                 'type': payload['chat_type'],
                 'courseId': payload['courseId'],
                 'lastMessage': null,
-                'unreadCount': 0
+                'unreadCount': 0,
               };
 
               final newChat = Chat.fromJson(chatJson);
@@ -146,7 +144,6 @@ class _ChatsMainState extends State<ChatsMain> {
     }
   }
 
-
   Future<void> _loadChats() async {
     if (mounted) {
       setState(() {
@@ -170,8 +167,8 @@ class _ChatsMainState extends State<ChatsMain> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _error = 'Помилка завантаження чатів:\n${e.toString().replaceFirst(
-              "Exception: ", "")}';
+          _error =
+              'Помилка завантаження чатів:\n${e.toString().replaceFirst("Exception: ", "")}';
         });
       }
     }
@@ -191,17 +188,23 @@ class _ChatsMainState extends State<ChatsMain> {
 
   List<Chat> _getFilteredChats(List<Chat> allChats) {
     if (widget.filterByCourseId == null) {
-      return allChats.where((chat) =>
-      chat.type == ChatType.GROUP || chat.type == ChatType.PRIVATE
-      ).toList();
+      return allChats
+          .where(
+            (chat) =>
+                chat.type == ChatType.GROUP || chat.type == ChatType.PRIVATE,
+          )
+          .toList();
     } else {
-      return allChats.where((chat) =>
-      chat.courseId == widget.filterByCourseId &&
-          (chat.type == ChatType.MAIN_COURSE_CHAT || chat.type == ChatType.COURSE_CHAT)
-      ).toList();
+      return allChats
+          .where(
+            (chat) =>
+                chat.courseId == widget.filterByCourseId &&
+                (chat.type == ChatType.MAIN_COURSE_CHAT ||
+                    chat.type == ChatType.COURSE_CHAT),
+          )
+          .toList();
     }
   }
-
 
   void _onStompConnect(StompFrame? frame) {
     print("STOMP client connected (ChatsMain).");
@@ -245,8 +248,7 @@ class _ChatsMainState extends State<ChatsMain> {
           type.startsWith('MATERIAL_') ||
           type.startsWith('COURSE_') ||
           type == 'USER_JOINED_TO_CHAT' ||
-          type == 'USER_LEFT_FROM_CHAT'
-      ) {
+          type == 'USER_LEFT_FROM_CHAT') {
         final message = ChatMessage.fromJson(payload);
 
         setState(() {
@@ -305,46 +307,46 @@ class _ChatsMainState extends State<ChatsMain> {
                   onPressed: isCreating
                       ? null
                       : () async {
-                    final chatName = nameController.text.trim();
-                    if (chatName.isEmpty) return;
+                          final chatName = nameController.text.trim();
+                          if (chatName.isEmpty) return;
 
-                    setDialogState(() => isCreating = true);
+                          setDialogState(() => isCreating = true);
 
-                    try {
+                          try {
+                            final createdChat = await _chatService
+                                .createGroupChat(widget.authToken, chatName, [
+                                  widget.currentUsername,
+                                ], photoUrl: null);
 
-                      final createdChat = await _chatService.createGroupChat(
-                        widget.authToken,
-                        chatName,
-                        [widget.currentUsername],
-                        photoUrl: null,
-                      );
-
-                      if (mounted) {
-                        Navigator.pop(dialogContext, createdChat);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Помилка: ${e.toString().replaceFirst(
-                                    "Exception: ", "")}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) {
-                        setDialogState(() => isCreating = false);
-                      }
-                    }
-                  },
+                            if (mounted) {
+                              Navigator.pop(dialogContext, createdChat);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Помилка: ${e.toString().replaceFirst("Exception: ", "")}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setDialogState(() => isCreating = false);
+                            }
+                          }
+                        },
                   child: isCreating
                       ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Створити'),
                 ),
               ],
@@ -372,7 +374,8 @@ class _ChatsMainState extends State<ChatsMain> {
               content: TextField(
                 controller: usernameController,
                 decoration: const InputDecoration(
-                    labelText: 'Username співрозмовника'),
+                  labelText: 'Username співрозмовника',
+                ),
                 autofocus: true,
                 enabled: !isCreating,
               ),
@@ -387,52 +390,55 @@ class _ChatsMainState extends State<ChatsMain> {
                   onPressed: isCreating
                       ? null
                       : () async {
-                    final username = usernameController.text.trim();
-                    if (username.isEmpty) return;
-                    if (username == widget.currentUsername) {
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
-                        const SnackBar(
-                          content: Text('Ви не можете створити чат з собою.'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                      return;
-                    }
+                          final username = usernameController.text.trim();
+                          if (username.isEmpty) return;
+                          if (username == widget.currentUsername) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Ви не можете створити чат з собою.',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
 
-                    setDialogState(() => isCreating = true);
+                          setDialogState(() => isCreating = true);
 
-                    try {
-                      final createdChat = await _chatService.createPrivateChat(
-                        widget.authToken,
-                        username,
-                      );
+                          try {
+                            final createdChat = await _chatService
+                                .createPrivateChat(widget.authToken, username);
 
-                      if (mounted) {
-                        Navigator.pop(dialogContext, createdChat);
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(dialogContext).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                                'Помилка: ${e.toString().replaceFirst(
-                                    "Exception: ", "")}'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    } finally {
-                      if (mounted) {
-                        setDialogState(() => isCreating = false);
-                      }
-                    }
-                  },
+                            if (mounted) {
+                              Navigator.pop(dialogContext, createdChat);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Помилка: ${e.toString().replaceFirst("Exception: ", "")}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setDialogState(() => isCreating = false);
+                            }
+                          }
+                        },
                   child: isCreating
                       ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Почати чат'),
                 ),
               ],
@@ -447,13 +453,111 @@ class _ChatsMainState extends State<ChatsMain> {
     }
   }
 
-  void _handleNewChatCreated(Chat newChat) {
+  Future<void> _showCreateCourseChatDialog() async {
+    if (widget.filterByCourseId == null) return;
 
+    final nameController = TextEditingController();
+    final Chat? newChat = await showDialog<Chat>(
+      context: context,
+      builder: (dialogContext) {
+        bool isCreating = false;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Створити курсовий чат'),
+              content: TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Назва чату',
+                  hintText: 'Наприклад, "Загальний", "Питання"',
+                ),
+                autofocus: true,
+                enabled: !isCreating,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isCreating
+                      ? null
+                      : () => Navigator.pop(dialogContext, null),
+                  child: const Text('Скасувати'),
+                ),
+                ElevatedButton(
+                  onPressed: isCreating
+                      ? null
+                      : () async {
+                          final chatName = nameController.text.trim();
+                          if (chatName.isEmpty) {
+                            ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Назва чату не може бути порожньою.',
+                                ),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isCreating = true);
+
+                          try {
+                            final createdChat = await _chatService
+                                .createCourseChat(
+                                  widget.authToken,
+                                  widget.filterByCourseId!,
+                                  chatName,
+                                  memberUsernames: [widget.currentUsername],
+                                );
+
+                            if (mounted) {
+                              Navigator.pop(dialogContext, createdChat);
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Помилка: ${e.toString().replaceFirst("Exception: ", "")}',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setDialogState(() => isCreating = false);
+                            }
+                          }
+                        },
+                  child: isCreating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Створити'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (newChat != null) {
+      _handleNewChatCreated(newChat);
+    }
+  }
+
+  void _handleNewChatCreated(Chat newChat) {
     _loadChats();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Чат успішно створено!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Чат успішно створено!')));
       _openChat(newChat);
     }
   }
@@ -469,15 +573,14 @@ class _ChatsMainState extends State<ChatsMain> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            ChatScreen(
-              authToken: widget.authToken,
-              chatId: chat.id,
-              chatName: chat.name,
-              currentUsername: widget.currentUsername,
-              stompClient: widget.stompClient,
-              courseId: chat.courseId,
-            ),
+        builder: (context) => ChatScreen(
+          authToken: widget.authToken,
+          chatId: chat.id,
+          chatName: chat.name,
+          currentUsername: widget.currentUsername,
+          stompClient: widget.stompClient,
+          courseId: chat.courseId,
+        ),
       ),
     );
 
@@ -490,7 +593,9 @@ class _ChatsMainState extends State<ChatsMain> {
 
     final appBar = AppBar(
       title: Text(isEmbedded ? 'Чати курсу' : 'Мої чати'),
-      backgroundColor: isEmbedded ? Colors.transparent : const Color(0xFF62567E),
+      backgroundColor: isEmbedded
+          ? Colors.transparent
+          : const Color(0xFF62567E),
       foregroundColor: isEmbedded ? Colors.black : Colors.white,
       elevation: isEmbedded ? 0 : null,
       leading: isEmbedded ? const SizedBox.shrink() : null,
@@ -507,8 +612,7 @@ class _ChatsMainState extends State<ChatsMain> {
                 _showCreatePrivateChatDialog();
               }
             },
-            itemBuilder: (BuildContext context) =>
-            <PopupMenuEntry<String>>[
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
                 value: 'private',
                 child: ListTile(
@@ -524,6 +628,12 @@ class _ChatsMainState extends State<ChatsMain> {
                 ),
               ),
             ],
+          )
+        else if (isEmbedded && widget.filterByCourseId != null)
+          IconButton(
+            icon: const Icon(Icons.add_comment_outlined),
+            tooltip: 'Створити курсовий чат',
+            onPressed: _showCreateCourseChatDialog,
           ),
       ],
     );
@@ -534,15 +644,9 @@ class _ChatsMainState extends State<ChatsMain> {
     );
 
     if (isEmbedded) {
-      return Scaffold(
-        appBar: appBar,
-        body: body,
-      );
+      return Scaffold(appBar: appBar, body: body);
     }
-    return Scaffold(
-      appBar: appBar,
-      body: body,
-    );
+    return Scaffold(appBar: appBar, body: body);
   }
 
   Widget _buildChatList() {
@@ -581,9 +685,10 @@ class _ChatsMainState extends State<ChatsMain> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(widget.filterByCourseId != null
-                ? 'Для цього курсу ще немає чатів.'
-                : 'У вас ще немає чатів.'
+            Text(
+              widget.filterByCourseId != null
+                  ? 'Для цього курсу ще немає чатів.'
+                  : 'У вас ще немає чатів.',
             ),
             const SizedBox(height: 10),
             if (widget.filterByCourseId == null)
@@ -594,9 +699,9 @@ class _ChatsMainState extends State<ChatsMain> {
               )
             else
               ElevatedButton.icon(
-                icon: const Icon(Icons.refresh),
-                label: const Text('Оновити'),
-                onPressed: _loadChats,
+                icon: const Icon(Icons.add_comment_outlined),
+                label: const Text('Створити курсовий чат'),
+                onPressed: _showCreateCourseChatDialog,
               ),
           ],
         ),
@@ -707,7 +812,9 @@ class _ChatListTileState extends State<_ChatListTile> {
 
   String _formatLastMessage(ChatMessage? message) {
     if (message == null) {
-      return widget.chat.type == ChatType.PRIVATE ? 'Почніть розмову' : 'Натисність, щоб переглянути';
+      return widget.chat.type == ChatType.PRIVATE
+          ? 'Почніть розмову'
+          : 'Натисність, щоб переглянути';
     }
     if (message.type != MessageType.USER_MESSAGE) {
       return _getSystemMessagePreview(message);
@@ -715,7 +822,8 @@ class _ChatListTileState extends State<_ChatListTile> {
 
     final prefix = (message.username == widget.currentUsername)
         ? "Ви: "
-        : (widget.chat.type == ChatType.GROUP || widget.chat.type == ChatType.COURSE_CHAT)
+        : (widget.chat.type == ChatType.GROUP ||
+              widget.chat.type == ChatType.COURSE_CHAT)
         ? "${message.username ?? 'Хтось'}: "
         : "";
 
@@ -745,22 +853,30 @@ class _ChatListTileState extends State<_ChatListTile> {
   Widget build(BuildContext context) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundImage: (_directPhotoUrl != null && _directPhotoUrl!.isNotEmpty)
+        backgroundImage:
+            (_directPhotoUrl != null && _directPhotoUrl!.isNotEmpty)
             ? NetworkImage(_directPhotoUrl!)
             : null,
-        onBackgroundImageError: (_directPhotoUrl != null && _directPhotoUrl!.isNotEmpty)
+        onBackgroundImageError:
+            (_directPhotoUrl != null && _directPhotoUrl!.isNotEmpty)
             ? (_, __) {
                 if (mounted) setState(() => _directPhotoUrl = null);
               }
             : null,
         child: _isLoadingPhoto
-            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             : (_directPhotoUrl == null || _directPhotoUrl!.isEmpty)
             ? Icon(_getIconForChatType(widget.chat.type))
             : null,
       ),
-      title: Text(widget.chat.name,
-          style: const TextStyle(fontWeight: FontWeight.bold)),
+      title: Text(
+        widget.chat.name,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
       subtitle: Text(
         _formatLastMessage(widget.chat.lastMessage),
         maxLines: 1,
@@ -771,7 +887,9 @@ class _ChatListTileState extends State<_ChatListTile> {
         children: [
           if (widget.chat.lastMessage != null)
             Text(
-              DateFormat('HH:mm').format(widget.chat.lastMessage!.sentAt.toLocal()),
+              DateFormat(
+                'HH:mm',
+              ).format(widget.chat.lastMessage!.sentAt.toLocal()),
               style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
           if (widget.chat.unreadCount > 0) ...[
@@ -781,10 +899,14 @@ class _ChatListTileState extends State<_ChatListTile> {
               backgroundColor: const Color(0xFF7C6BA3),
               child: Text(
                 widget.chat.unreadCount.toString(),
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ]
+          ],
         ],
       ),
       onTap: widget.onTap,

@@ -6,6 +6,7 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "../jitsi_webview.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
@@ -58,6 +59,42 @@ static void my_application_activate(GApplication* application) {
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  // Setup method channel for WebView
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  g_autoptr(FlMethodChannel) channel = fl_method_channel_new(
+      fl_engine_get_binary_messenger(fl_view_get_engine(view)),
+      "com.example.kurs/webview",
+      FL_METHOD_CODEC(codec));
+
+  fl_method_channel_set_method_call_handler(
+      channel,
+      [](FlMethodChannel* channel, FlMethodCall* method_call, gpointer user_data) {
+        const gchar* method_name = fl_method_call_get_name(method_call);
+        FlValue* args = fl_method_call_get_args(method_call);
+
+        if (g_strcmp0(method_name, "loadHtml") == 0) {
+          if (fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+            FlValue* html_value = fl_value_lookup_string(args, "html");
+            if (html_value && fl_value_get_type(html_value) == FL_VALUE_TYPE_STRING) {
+              const gchar* html_content = fl_value_get_string(html_value);
+              JitsiWebView::GetInstance()->LoadHtml(std::string(html_content));
+              fl_method_call_respond_success(method_call, fl_value_new_bool(true), nullptr);
+              return;
+            }
+          }
+        } else if (g_strcmp0(method_name, "dispose") == 0) {
+          JitsiWebView::GetInstance()->Dispose();
+          fl_method_call_respond_success(method_call, fl_value_new_bool(true), nullptr);
+          return;
+        } else if (g_strcmp0(method_name, "isAvailable") == 0) {
+          fl_method_call_respond_success(method_call, fl_value_new_bool(true), nullptr);
+          return;
+        }
+
+        fl_method_call_respond_not_implemented(method_call, nullptr);
+      },
+      nullptr, nullptr);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

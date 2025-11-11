@@ -346,126 +346,234 @@ class ConferenceService {
 
   /// Generates an HTML page with embedded Jitsi Meet
   String generateJitsiHtml({
-    required String jwt,
-    required String roomName,
-    required String subject,
-    required ConferenceRole role,
-    String jitsiServerUrl = 'https://team-room-jitsi.duckdns.org',
+  required String jwt,
+  required String roomName,
+  required String subject,
+  required ConferenceRole role,
+  String jitsiServerUrl = 'https://team-room-jitsi.duckdns.org',
+  bool hasCameraPermission = true,
+  bool hasMicrophonePermission = true,
   }) {
-    final isViewer = role == ConferenceRole.VIEWER;
-    final videoMuted = isViewer ? 'true' : 'false';
-    final disableSelfView = isViewer ? 'true' : 'false';
+  final isViewer = role == ConferenceRole.VIEWER;
+  final disableSelfView = isViewer ? 'true' : 'false';
+  // Extract domain from URL without trailing slash
+  final domain = jitsiServerUrl.replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), '');
     
     return '''<!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>$subject</title>
-    <script src='$jitsiServerUrl/external_api.js'></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>$subject</title>
+  <script src='https://$domain/external_api.js'></script>
+  <style>
+  * {
+  margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+  }
+  
+  html, body {
+  width: 100%;
+      height: 100%;
+      overflow: hidden;
+  }
+  
+  body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      background: #fff;
+  }
+  
+  #jitsi-container {
+  width: 100%;
+  height: 100%;
+      display: flex;
+      flex-direction: column;
+  }
+  
+  .loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #f5f5f5;
+      font-size: 16px;
+          color: #666;
         }
         
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-            background: #fff;
-        }
-        
-        #jitsi-container {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 100%;
-            background: #f5f5f5;
-            font-size: 16px;
-            color: #666;
-        }
-    </style>
+      .error {
+      display: none;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+      height: 100%;
+      background: #fff3cd;
+      font-size: 14px;
+      color: #856404;
+      padding: 20px;
+      text-align: center;
+  flex-direction: column;
+  }
+  
+  .error.show {
+  display: flex;
+  }
+  </style>
 </head>
 <body>
-    <div id="jitsi-container">
-        <div class="loading">Завантаження конференції...</div>
-    </div>
-    
-    <script>
-        const options = {
-            roomName: '$roomName',
-            jwt: '$jwt',
-            width: '100%',
-            height: '100%',
-            parentNode: document.getElementById('jitsi-container'),
-            configOverwrite: {
-                startWithAudioMuted: true,
-                startWithVideoMuted: $videoMuted,
-                prejoinPageEnabled: true,
-                disableSelfView: $disableSelfView,
-                subject: '$subject',
-            },
-            interfaceConfigOverwrite: {
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_BRAND_WATERMARK: false,
-                SHOW_POWERED_BY: false,
-                DEFAULT_BACKGROUND: '#ffffff',
-                TOOLBAR_ALWAYS_VISIBLE: false,
-                INITIAL_TOOLBAR_TIMEOUT: 20000,
-                TOOLBAR_TIMEOUT: 5000,
-            },
-            onload: onJitsiIframeReady,
-        };
-        
-        let api;
-        
-        function onJitsiIframeReady(jitsiApi) {
-            api = jitsiApi;
-            api.addEventListener('videoConferenceLeft', onVideoConferenceLeft);
-            api.addEventListener('participantJoined', onParticipantJoined);
-            api.addEventListener('participantLeft', onParticipantLeft);
-            api.addEventListener('readyToClose', onReadyToClose);
-        }
-        
-        function onVideoConferenceLeft() {
-            console.log('Video conference left');
-            window.location.href = 'about:blank';
-        }
-        
-        function onParticipantJoined(id) {
-            console.log('Participant joined:', id);
-        }
-        
-        function onParticipantLeft(id) {
-            console.log('Participant left:', id);
-        }
-        
-        function onReadyToClose() {
-            console.log('Ready to close');
-            window.location.href = 'about:blank';
-        }
-        
-        window.addEventListener('beforeunload', function() {
-            if (api) {
-                api.dispose();
+  <div id="jitsi-container">
+  <div class="loading" id="loading-div">Завантаження конференції...</div>
+  <div class="error" id="error-div"></div>
+  </div>
+  
+  <script>
+  // Логування інформації про дозволи
+  console.log('Camera permission: $hasCameraPermission');
+  console.log('Microphone permission: $hasMicrophonePermission');
+  console.log('Jitsi Server: https://$domain');
+  
+  function showError(message) {
+  const errorDiv = document.getElementById('error-div');
+  const loadingDiv = document.getElementById('loading-div');
+  loadingDiv.style.display = 'none';
+  errorDiv.textContent = message;
+      errorDiv.classList.add('show');
+  }
+  
+  // Check if JitsiMeetExternalAPI is available
+  if (typeof JitsiMeetExternalAPI === 'undefined') {
+  console.error('JitsiMeetExternalAPI not loaded from https://$domain/external_api.js');
+  // Try loading it manually
+  const script = document.createElement('script');
+  script.src = 'https://$domain/external_api.js';
+  script.onload = initializeConference;
+  script.onerror = function() {
+  console.error('Failed to load external_api.js');
+  showError('Не вдалося завантажити конференцію. Перевірте з"єднання з Інтернетом.');
+  };
+  document.head.appendChild(script);
+  } else {
+  initializeConference();
+  }
+  
+  function initializeConference() {
+  // Запит дозволів браузера на доступ до камери та мікрофону
+  async function requestBrowserPermissions() {
+  try {
+          if ($hasCameraPermission) {
+              console.log('Requesting camera access...');
+          await navigator.mediaDevices.getUserMedia({ video: true });
+          console.log('Camera access granted');
+      }
+      
+      if ($hasMicrophonePermission) {
+          console.log('Requesting microphone access...');
+          await navigator.mediaDevices.getUserMedia({ audio: true });
+              console.log('Microphone access granted');
+          }
+              
+              if ($hasCameraPermission && $hasMicrophonePermission) {
+                  console.log('Requesting both camera and microphone...');
+                  await navigator.mediaDevices.getUserMedia({ 
+                      video: { height: { ideal: 720, max: 720, min: 240 } },
+                  audio: true 
+              });
+              console.log('Both camera and microphone access granted');
+          }
+      } catch (err) {
+          console.error('Permission error:', err);
+          // Продовжуємо незалежно від помилки
+          }
+      }
+      
+  const options = {
+      roomName: '$roomName',
+          jwt: '$jwt',
+          width: '100%',
+          height: '100%',
+      parentNode: document.getElementById('jitsi-container'),
+          configOverwrite: {
+              startWithAudioMuted: ${!hasMicrophonePermission},
+              startWithVideoMuted: ${!hasCameraPermission},
+          prejoinPageEnabled: true,
+              disableSelfView: $disableSelfView,
+              subject: '$subject',
+              constraints: {
+              video: {
+                  height: {
+                          ideal: 720,
+                          max: 720,
+                          min: 240
+                  }
+                  }
+              }
+          },
+      interfaceConfigOverwrite: {
+              SHOW_JITSI_WATERMARK: false,
+              SHOW_BRAND_WATERMARK: false,
+              SHOW_POWERED_BY: false,
+          DEFAULT_BACKGROUND: '#ffffff',
+      TOOLBAR_ALWAYS_VISIBLE: false,
+          INITIAL_TOOLBAR_TIMEOUT: 20000,
+              TOOLBAR_TIMEOUT: 5000,
+          },
+          onload: onJitsiIframeReady,
+      };
+  
+  let api;
+      
+  function onJitsiIframeReady(jitsiApi) {
+      api = jitsiApi;
+          api.addEventListener('videoConferenceLeft', onVideoConferenceLeft);
+              api.addEventListener('participantJoined', onParticipantJoined);
+                api.addEventListener('participantLeft', onParticipantLeft);
+                api.addEventListener('readyToClose', onReadyToClose);
+                api.addEventListener('audioAvailabilityChanged', onAudioAvailabilityChanged);
+                api.addEventListener('videoAvailabilityChanged', onVideoAvailabilityChanged);
             }
-        });
-        
-        const api = new JitsiMeetExternalAPI('$jitsiServerUrl', options);
+            
+            function onVideoConferenceLeft() {
+                console.log('Video conference left');
+                window.location.href = 'about:blank';
+            }
+            
+            function onParticipantJoined(id) {
+                console.log('Participant joined:', id);
+            }
+            
+            function onParticipantLeft(id) {
+                console.log('Participant left:', id);
+            }
+            
+            function onReadyToClose() {
+                console.log('Ready to close');
+                window.location.href = 'about:blank';
+            }
+            
+            function onAudioAvailabilityChanged(available) {
+                console.log('Audio availability changed:', available);
+            }
+            
+            function onVideoAvailabilityChanged(available) {
+                console.log('Video availability changed:', available);
+            }
+            
+            window.addEventListener('beforeunload', function() {
+                if (api) {
+                    api.dispose();
+                }
+            });
+            
+            // Запитуємо дозволи браузера перед ініціалізацією конференції
+            requestBrowserPermissions().then(() => {
+                console.log('Browser permissions handled');
+                api = new JitsiMeetExternalAPI('$domain', options);
+            }).catch(err => {
+                console.error('Error initializing conference:', err);
+                api = new JitsiMeetExternalAPI('$domain', options);
+            });
+        }
     </script>
 </body>
 </html>''';

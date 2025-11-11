@@ -1,17 +1,23 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:jitsi_meet/jitsi_meet.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_windows/webview_windows.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:convert';
 import '../classes/conference_service.dart';
 import '../classes/chat_models.dart';
+import '../classes/course_models.dart';
 
 class ConferenceScreen extends StatefulWidget {
   final String authToken;
   final int courseId;
   final String username;
   final String courseName;
+  final CourseRole? userRole;
 
   const ConferenceScreen({
     Key? key,
@@ -19,6 +25,7 @@ class ConferenceScreen extends StatefulWidget {
     required this.courseId,
     required this.username,
     required this.courseName,
+    this.userRole,
   }) : super(key: key);
 
   @override
@@ -42,7 +49,7 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
       const Duration(seconds: 5),
       (_) => _loadConferences(),
     );
-    
+
     // JitsiMeet listener setup (if available in this version)
     // Can be added based on jitsi_meet version
   }
@@ -56,8 +63,7 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
 
   Future<void> _loadConferences() async {
     try {
-      final conferences =
-          await _conferenceService.getCourseConferences(
+      final conferences = await _conferenceService.getCourseConferences(
         widget.authToken,
         widget.courseId,
       );
@@ -116,9 +122,9 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
 
   Future<void> _joinConference(Conference conference) async {
     if (conference.status != ConferenceStatus.ACTIVE) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Конференція не активна')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Конференція не активна')));
       return;
     }
 
@@ -149,36 +155,88 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
   }
 
   Future<void> _joinConferenceInternal(ConferenceJoinResponse response) async {
-    try {
-      final int waitTime = JwtTimingCalculator.calculateJwtWaitTime(response.jwt);
-      await Future.delayed(Duration(milliseconds: waitTime));
+  try {
+  // Windows - use InAppWebView
+  if (Platform.isWindows) {
+  print('Windows detected, using InAppWebView');
+  final htmlContent = ConferenceService().generateJitsiHtml(
+    jwt: response.jwt,
+    roomName: response.roomName,
+  subject: 'Конференція - ${widget.courseName}',
+  role: response.role,
+  jitsiServerUrl: response.jitsiServerUrl,
+  );
+  final dataUrl = 'data:text/html;charset=utf-8;base64,${base64Encode(utf8.encode(htmlContent))}';
+  if (mounted) {
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => JitsiInAppWebViewScreen(
+        url: dataUrl,
+         subject: 'Конференція - ${widget.courseName}',
+       ),
+   ),
+   );
+   }
+   return;
+   }
 
-      if (Platform.isWindows) {
-        // For Windows, open in browser
-        await _launchJitsiInBrowser(response);
-      } else {
-        // For mobile platforms, use WebView
-        final html = _conferenceService.generateJitsiHtml(
-          jwt: response.jwt,
-          roomName: response.roomName,
-          subject: 'Конференція',
-          role: response.role,
-          jitsiServerUrl: response.jitsiServerUrl,
-        );
+  // Linux/macOS - use webview_flutter
+  if (Platform.isLinux || Platform.isMacOS) {
+   print('Desktop platform detected, using embedded WebView');
+   if (mounted) {
+   Navigator.of(context).push(
+     MaterialPageRoute(
+       builder: (_) => JitsiWebViewScreen(
+         jwt: response.jwt,
+         roomName: response.roomName,
+           subject: 'Конференція - ${widget.courseName}',
+           role: response.role,
+           jitsiServerUrl: response.jitsiServerUrl,
+           username: widget.username,
+       ),
+   ),
+   );
+   }
+   return;
+   }
 
-        if (mounted) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => JitsiWebViewScreen(
-                htmlContent: html,
-                roomName: response.roomName,
-              ),
-            ),
-          );
-        }
-      }
+  // Mobile platforms - request permissions
+  try {
+  await Permission.camera.request();
+  await Permission.microphone.request();
+  } catch (e) {
+  print('Permission error (non-fatal, continuing): $e');
+  // Continue anyway for platforms that don't require permissions
+  }
+
+  // Mobile platforms - use native Jitsi
+  // Request permissions (already requested above, use defaults)
+  final hasCameraPermission = true;
+  final hasMicrophonePermission = true;
+
+  // Wait for JWT timing
+  final int waitTime = JwtTimingCalculator.calculateJwtWaitTime(
+  response.jwt,
+  );
+  print('Waiting $waitTime ms for JWT timing');
+  await Future.delayed(Duration(milliseconds: waitTime));
+
+  // Launch Jitsi meeting
+  print('Creating Jitsi options for room: ${response.roomName}');
+  var options = JitsiMeetingOptions(room: response.roomName)
+  ..serverURL = response.jitsiServerUrl
+  ..token = response.jwt
+  ..audioMuted = !hasMicrophonePermission
+  ..videoMuted = !hasCameraPermission
+  ..userDisplayName = widget.username;
+
+  print('Joining meeting with options: serverURL=${options.serverURL}, room=${options.room}');
+  await JitsiMeet.joinMeeting(options);
+  print('Successfully joined meeting');
     } catch (e) {
+      print('Error in _joinConferenceInternal: $e');
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Помилка при приєднанні: $e'),
@@ -189,46 +247,6 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
     }
   }
 
-  Future<void> _launchJitsiInBrowser(ConferenceJoinResponse response) async {
-    try {
-      final jitsiUrl = Uri(
-        scheme: 'https',
-        host: 'team-room-jitsi.duckdns.org',
-        path: '/${response.roomName}',
-        queryParameters: {
-          'jwt': response.jwt,
-        },
-      );
-
-      if (await canLaunchUrl(jitsiUrl)) {
-        await launchUrl(
-          jitsiUrl,
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Не вдалося відкрити браузер'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Помилка: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-
-
   void _showCreateConferenceDialog() {
     showDialog(
       context: context,
@@ -238,9 +256,7 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
           controller: _subjectController,
           decoration: InputDecoration(
             hintText: 'Назва конференції',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           maxLength: 100,
         ),
@@ -258,6 +274,13 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
     );
   }
 
+  bool _canCreateConference() {
+    if (widget.userRole == null) return false;
+    return widget.userRole == CourseRole.OWNER ||
+        widget.userRole == CourseRole.PROFESSOR ||
+        widget.userRole == CourseRole.LEADER;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -272,11 +295,13 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
         ],
       ),
       body: _buildBody(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showCreateConferenceDialog,
-        tooltip: 'Створити конференцію',
-        child: const Icon(Icons.videocam),
-      ),
+      floatingActionButton: _canCreateConference()
+          ? FloatingActionButton(
+              onPressed: _showCreateConferenceDialog,
+              tooltip: 'Створити конференцію',
+              child: const Icon(Icons.videocam),
+            )
+          : null,
     );
   }
 
@@ -292,10 +317,7 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
           children: [
             const Icon(Icons.error_outline, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            Text(
-              'Помилка',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('Помилка', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -351,11 +373,18 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
   Widget _buildConferenceCard(Conference conference) {
     final isActive = conference.status == ConferenceStatus.ACTIVE;
     final dateFormatter = DateFormat('dd.MM.yyyy HH:mm');
+    final duration = _calculateDuration(conference);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isActive ? Colors.green.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
       child: InkWell(
         onTap: isActive ? () => _joinConference(conference) : null,
         borderRadius: BorderRadius.circular(12),
@@ -373,11 +402,8 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
                       children: [
                         Text(
                           conference.subject,
-                          style:
-                              Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -397,6 +423,14 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
                 ],
               ),
               const SizedBox(height: 12),
+              if (duration.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _buildInfoChip(
+                    icon: Icons.schedule,
+                    label: duration,
+                  ),
+                ),
               _buildParticipantsList(conference),
               const SizedBox(height: 12),
               Row(
@@ -428,12 +462,37 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
     );
   }
 
+  String _calculateDuration(Conference conference) {
+    if (conference.endedAt == null) {
+      // Conference is active or not yet ended
+      final now = DateTime.now();
+      final difference = now.difference(conference.createdAt);
+      if (difference.inHours > 0) {
+        return 'Тривалість: ${difference.inHours}ч ${difference.inMinutes % 60}м';
+      } else if (difference.inMinutes > 0) {
+        return 'Тривалість: ${difference.inMinutes}м';
+      }
+      return '';
+    } else {
+      // Conference has ended
+      final difference = conference.endedAt!.difference(conference.createdAt);
+      if (difference.inHours > 0) {
+        return 'Тривалість: ${difference.inHours}ч ${difference.inMinutes % 60}м';
+      } else if (difference.inMinutes > 0) {
+        return 'Тривалість: ${difference.inMinutes}м';
+      }
+      return 'Тривалість: < 1м';
+    }
+  }
+
   Widget _buildStatusBadge(ConferenceStatus status) {
     final isActive = status == ConferenceStatus.ACTIVE;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isActive ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+        color: isActive
+            ? Colors.green.withValues(alpha: 0.2)
+            : Colors.grey.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isActive ? Colors.green : Colors.grey,
@@ -451,14 +510,11 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
     );
   }
 
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _buildInfoChip({required IconData icon, required String label}) {
     return Chip(
       avatar: Icon(icon, size: 18),
       label: Text(label),
-      backgroundColor: Colors.grey.withOpacity(0.2),
+      backgroundColor: Colors.grey.withValues(alpha: 0.2),
     );
   }
 
@@ -501,7 +557,7 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
             if (hasMore)
               Chip(
                 label: Text('+${conference.participants.length - 3}'),
-                backgroundColor: Colors.grey.withOpacity(0.3),
+                backgroundColor: Colors.grey.withValues(alpha: 0.3),
               ),
           ],
         ),
@@ -512,26 +568,104 @@ class _ConferenceScreenState extends State<ConferenceScreen> {
   Color _getRoleColor(ConferenceRole role) {
     switch (role) {
       case ConferenceRole.MODERATOR:
-        return Colors.red.withOpacity(0.3);
+        return Colors.red.withValues(alpha: 0.3);
       case ConferenceRole.MEMBER:
-        return Colors.blue.withOpacity(0.3);
+        return Colors.blue.withValues(alpha: 0.3);
       case ConferenceRole.VIEWER:
-        return Colors.orange.withOpacity(0.3);
+        return Colors.orange.withValues(alpha: 0.3);
       default:
-        return Colors.grey.withOpacity(0.3);
+        return Colors.grey.withValues(alpha: 0.3);
     }
   }
 }
 
-/// WebView screen for displaying Jitsi Meet embedded in HTML
+/// WebView екран з підтримкою камери/мікрофону для Windows
+class JitsiInAppWebViewScreen extends StatefulWidget {
+  final String url;
+  final String subject;
+
+  const JitsiInAppWebViewScreen({
+    Key? key,
+    required this.url,
+    required this.subject,
+  }) : super(key: key);
+
+  @override
+  State<JitsiInAppWebViewScreen> createState() => _JitsiInAppWebViewScreenState();
+}
+
+class _JitsiInAppWebViewScreenState extends State<JitsiInAppWebViewScreen> {
+  late WebViewController _webViewController;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeWebView();
+  }
+
+  void _initializeWebView() async {
+    try {
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageStarted: (url) {
+            print('⏳ Завантаження: $url');
+          },
+          onPageFinished: (url) {
+            print('✅ Завантажено: $url');
+          },
+          onWebResourceError: (error) {
+            print('❌ Помилка: ${error.description}');
+          },
+        ))
+        ..loadRequest(Uri.parse(widget.url));
+
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+      print('✅ WebView створено для Windows');
+    } catch (e) {
+      print('❌ Помилка при ініціалізації WebView: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.subject),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: _isInitialized
+          ? WebViewWidget(controller: _webViewController)
+          : const Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+/// WebView-based Jitsi Meet screen for macOS/Linux
 class JitsiWebViewScreen extends StatefulWidget {
-  final String htmlContent;
+  final String jwt;
   final String roomName;
+  final String subject;
+  final ConferenceRole role;
+  final String jitsiServerUrl;
+  final String username;
 
   const JitsiWebViewScreen({
     Key? key,
-    required this.htmlContent,
+    required this.jwt,
     required this.roomName,
+    required this.subject,
+    required this.role,
+    required this.jitsiServerUrl,
+    required this.username,
   }) : super(key: key);
 
   @override
@@ -539,65 +673,101 @@ class JitsiWebViewScreen extends StatefulWidget {
 }
 
 class _JitsiWebViewScreenState extends State<JitsiWebViewScreen> {
-  late WebViewController _webViewController;
-  bool _isLoading = true;
+  WebViewController? _webViewController;
 
   @override
   void initState() {
     super.initState();
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() => _isLoading = true);
-          },
-          onPageFinished: (url) {
-            setState(() => _isLoading = false);
-          },
-          onWebResourceError: (WebResourceError error) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Помилка завантаження: ${error.description}'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          },
-          onNavigationRequest: (NavigationRequest request) {
-            // Allow all navigation including to 'about:blank' for exit
-            return NavigationDecision.navigate;
-          },
-        ),
-      )
-      ..loadHtmlString(widget.htmlContent);
+    _initializeWebViewAsync();
+  }
+
+  void _initializeWebViewAsync() {
+    // Use post-frame callback to initialize after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeWebView();
+    });
+  }
+
+  void _initializeWebView() {
+  try {
+  // Build Jitsi URL
+  final jitsiUrl =
+       '${widget.jitsiServerUrl}/${widget.roomName}?jwt=${widget.jwt}';
+
+   // Initialize WebViewController with error handling for plugin issues
+   try {
+       final controller = WebViewController(
+         onPermissionRequest: (request) {
+            print('Permission requested: ${request.types}');
+            // Автоматично дозволяємо доступ до камери та мікрофону
+            try {
+              request.grant();
+            } catch (e) {
+        print('Error granting permission: $e');
+             }
+      },
+    )
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+   ..loadRequest(Uri.parse(jitsiUrl));
+
+  if (mounted) {
+  setState(() {
+  _webViewController = controller;
+  });
+  }
+  } on MissingPluginException catch (e) {
+  print('WebView plugin not available: $e');
+   if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+              content: const Text('WebView plugin не доступний. Спробуйте перезавантажити додаток.'),
+       backgroundColor: Colors.red,
+     ),
+  );
+  }
+  } catch (e) {
+   print('Error initializing WebViewController: $e');
+  if (mounted) {
+   ScaffoldMessenger.of(context).showSnackBar(
+     SnackBar(
+   content: Text('Помилка при запуску WebView: $e'),
+  backgroundColor: Colors.red,
+  ),
+  );
+  }
+  }
+  } catch (e) {
+  print('Error in _initializeWebView: $e');
+  if (mounted) {
+  ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(
+  content: Text('Помилка при запуску: $e'),
+  backgroundColor: Colors.red,
+  ),
+  );
+  }
+  }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_isLoading,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.roomName),
-          elevation: 2,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => Navigator.of(context).pop(),
-              tooltip: 'Вийти з конференції',
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            WebViewWidget(controller: _webViewController),
-            if (_isLoading)
-              const Center(
-                child: CircularProgressIndicator(),
-              ),
-          ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.subject),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-    );
-  }
+      body: _webViewController == null
+      ? const Center(child: CircularProgressIndicator())
+      : WebViewWidget(controller: _webViewController!),
+      );
+      }
 }
+
